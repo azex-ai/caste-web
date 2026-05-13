@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: oklch(0.975 0.018 338);
+  --color-bg-elevated: oklch(1 0 0);
+  --color-bg-muted: oklch(0.955 0.026 338);
+  --color-bg-soft: oklch(0.932 0.045 330);
+  --color-border: oklch(0.9 0.035 330);
+  --color-border-strong: oklch(0.82 0.065 330);
+  --color-text: oklch(0.19 0.03 300);
+  --color-text-muted: oklch(0.47 0.035 300);
+  --color-text-dim: oklch(0.62 0.032 300);
+
+  --color-accent: #ff007a;
+  --color-accent-fg: oklch(1 0 0);
+  --color-violet: #7a35ff;
+
+  --color-positive: oklch(0.72 0.17 145);
+  --color-negative: oklch(0.65 0.22 25);
+  --color-warning: oklch(0.78 0.16 75);
+
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html {
+    min-height: 100%;
+    background:
+      radial-gradient(circle at 12% -8%, rgb(255 0 122 / 0.18), transparent 28rem),
+      radial-gradient(circle at 90% 0%, rgb(252 114 255 / 0.2), transparent 30rem),
+      linear-gradient(180deg, rgb(255 247 252), rgb(249 242 250) 42%, rgb(246 239 248)),
+      var(--color-bg);
+  }
+  body {
+    min-height: 100%;
+    background: transparent;
+    color: var(--color-text);
+    font-family:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter,
+      sans-serif;
+    font-feature-settings:
+      "ss01", "cv11";
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    overflow-x: hidden;
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  a,
+  button {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      opacity 150ms ease;
+  }
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: rgb(255 0 122 / 0.18);
+    color: var(--color-text);
+  }
+}
+
+/* Tabular numbers for any chain-data display. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family:
+    ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+}
