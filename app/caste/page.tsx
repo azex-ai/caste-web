@@ -18,8 +18,9 @@ function formatUsdcMicro(micro: bigint): string {
   return `$${usd.toFixed(2)}`;
 }
 
-// Server component — falls back to mock data when indexer not reachable
-async function fetchStats() {
+// Server component — falls back to mock data when indexer not reachable.
+// Indexer returns a different field schema; we map it to MOCK_STATS shape here.
+async function fetchStats(): Promise<typeof MOCK_STATS> {
   try {
     const base =
       process.env.NEXT_PUBLIC_INDEXER_URL ?? "http://localhost:42069";
@@ -27,7 +28,14 @@ async function fetchStats() {
       next: { revalidate: 15 },
     });
     if (!res.ok) throw new Error("indexer down");
-    return res.json() as Promise<typeof MOCK_STATS>;
+    const raw = await res.json();
+    return {
+      totalMinted: raw.totalCards ?? 0,
+      megaPool: BigInt(raw.megaPoolBalance ?? "0"),
+      megaDeadline: raw.megaPoolDeadline ?? Math.floor(Date.now() / 1000) + 86400,
+      hourlyPool: 0n,
+      queueLength: raw.buyQueueLength ?? 0,
+    };
   } catch {
     return MOCK_STATS;
   }

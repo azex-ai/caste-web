@@ -40,9 +40,25 @@ export async function fetchMegaWinners(): Promise<MegaWinner[]> {
   return fetchJson<MegaWinner[]>("/api/caste/mega-winners");
 }
 
-// Live stats: totalMinted / megaPool / megaDeadline / hourlyPool / queueLength
+// Live stats: totalMinted / megaPool / megaDeadline / hourlyPool / queueLength.
+// Indexer uses different field names — map them here.
+interface IndexerStats {
+  totalCards?: number;
+  mythicCards?: number;
+  buyQueueLength?: number;
+  megaPoolBalance?: string;
+  megaPoolDeadline?: number | null;
+  fomoSecondsLeft?: number;
+}
 export async function fetchCasteStats(): Promise<CasteStats> {
-  return fetchJson<CasteStats>("/api/caste/stats");
+  const raw = await fetchJson<IndexerStats>("/api/caste/stats");
+  return {
+    totalMinted: raw.totalCards ?? 0,
+    megaPool: BigInt(raw.megaPoolBalance ?? "0"),
+    megaDeadline: raw.megaPoolDeadline ?? 0,
+    hourlyPool: 0n,
+    queueLength: raw.buyQueueLength ?? 0,
+  };
 }
 
 // Query keys for React Query
