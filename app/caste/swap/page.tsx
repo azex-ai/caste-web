@@ -1,371 +1,520 @@
-"use client";
-
-import { useState, useCallback } from "react";
-import { useAccount } from "wagmi";
-import { CasteConnectButton } from "@/components/caste/connect-button";
-import { MultiplierReel } from "@/components/caste/multiplier-reel";
+import Link from "next/link";
+import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { TierBadge } from "@/components/caste/tier-badge";
-import {
-  UNIT_USDC,
-  TIER_NAMES,
-  TIER_EMOJIS,
-  MULT_OUTCOMES,
-  MULT_COLORS,
-  MULT_PROBS_BY_TIER,
-  SELL_TAX_BRACKETS,
-} from "@/lib/caste/constants";
-import { useHighestTier } from "@/lib/caste/hooks";
-import { CONTRACTS } from "@/lib/caste/constants";
-import type { MultiplierIndex, TierIndex } from "@/lib/caste/types";
+import { PHASE_STATE, LAST_BUY_V1, POOLS_V1 } from "@/lib/caste/mock";
 
-function formatUsdc(micro: bigint): string {
-  const usd = Number(micro) / 1_000_000;
-  if (usd >= 1000) return `$${(usd / 1000).toFixed(2)}K`;
-  return `$${usd.toFixed(5)}`;
-}
+export const dynamic = "force-static";
 
-function getSellTax(holdingDays: number, tierIdx: number): number {
-  const tierDiscounts = [0, -2, -3, -3, -4, -5, -10, -13, -15, -17];
-  const discount = tierDiscounts[tierIdx] ?? 0;
-  for (const { days, base } of SELL_TAX_BRACKETS) {
-    if (holdingDays < days) return Math.max(0, base + discount);
-  }
-  return Math.max(0, 4 + discount);
-}
+const UNIT_USDC = 6.66666;
+const CASTE_PER_USDC = 21008;
+const MAX_CARDS_PER_BUY = 4;
 
-function MultiplierTable({ tierIdx }: { tierIdx: TierIndex }) {
-  const probs = MULT_PROBS_BY_TIER[tierIdx];
-  return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-        Multiplier 概率表 — {TIER_EMOJIS[tierIdx]} {TIER_NAMES[tierIdx]}
-      </h3>
-      <div className="flex flex-col gap-1">
-        {MULT_OUTCOMES.map((outcome, i) => (
-          <div key={outcome} className="flex items-center gap-3">
-            <div className="w-32">
-              <span className={["text-sm font-semibold", MULT_COLORS[i]].join(" ")}>
-                {outcome}
-              </span>
-            </div>
-            <div className="flex-1 overflow-hidden rounded-full bg-zinc-700 h-1.5">
-              <div
-                className={["h-1.5 rounded-full", MULT_COLORS[i].replace("text-", "bg-")].join(" ")}
-                style={{ width: `${Math.min(100, (probs[i] ?? 0) * 3)}%` }}
-                role="presentation"
-              />
-            </div>
-            <span className="tabular-nums w-10 text-right text-xs text-zinc-400">
-              {probs[i] ?? 0}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+const fmtCaste = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : Math.round(n).toLocaleString();
+const log10 = (u: number) => Math.log10(Math.max(1, u));
 
-function SellTaxTable({ tierIdx }: { tierIdx: TierIndex }) {
-  const brackets = [
-    { label: "0-7 天", days: 3 },
-    { label: "7-30 天", days: 15 },
-    { label: "30-90 天", days: 60 },
-    { label: ">90 天", days: 120 },
+export default function SwapV1Page() {
+  const units = 12;
+  const usdcIn = units * UNIT_USDC;
+  const fee = usdcIn * 0.015;
+  const swappable = usdcIn - fee;
+  const casteOut = swappable * CASTE_PER_USDC;
+  const willMint = Math.min(units, MAX_CARDS_PER_BUY);
+  const m = POOLS_V1.mega;
+  const h = POOLS_V1.hourly;
+
+  const tickerItems = [
+    { tag: "▸ PHASE A", text: `${PHASE_STATE.cardsMinted.toLocaleString()} / 10,000 sealed cards minted · sell tax 25%`, color: "var(--blood-hi)" },
+    { tag: "▸ LASTBUY", text: "you · 0x6e91…aa83 · last buy 14s ago · +120s FOMO boost", color: "var(--jade)" },
+    { tag: "▸ BUFFER",  text: "3.89B / 4.20B CASTE in flip reserve · ~280k flips remain", color: "var(--gold-hi)" },
+    { tag: "▸ FOMO",    text: "deadline 06:17:42 · MEGA pool $184K → YOU (last buyer)", color: "var(--blood-hi)" },
   ];
+
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-        Sell Tax 阶梯（100% burn）
-      </h3>
-      <div className="flex flex-col gap-1.5">
-        {brackets.map(({ label, days }) => {
-          const tax = getSellTax(days, tierIdx);
-          return (
-            <div key={label} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-zinc-400">{label}</span>
-              <span
-                className={
-                  tax <= 5
-                    ? "font-bold text-emerald-400"
-                    : tax <= 15
-                    ? "font-bold text-amber-400"
-                    : "font-bold text-red-400"
-                }
-              >
-                {tax}%
-              </span>
+    <div>
+      <Ticker items={tickerItems} />
+
+      <section style={{ padding: "44px 60px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+        <div>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
+            /CASTE/SWAP · QUIET MARKET BUY · SEALED CARDS APPEND
+          </div>
+          <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>Buy In.</span>
+            <span className="display" style={{ fontSize: 32, color: "var(--acid)" }}>/ TICKET, NOT REVEAL</span>
+          </h1>
+          <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 760, marginTop: 12, lineHeight: 1.55 }}>
+            1 unit = <span className="led" style={{ color: "var(--bone)", fontSize: 16 }}>$6.66666</span>. Buy 1–100. You get the{" "}
+            <strong style={{ color: "var(--bone)" }}>pure pool curve</strong> in $CASTE — no multiplier, no surprise. Up to 4{" "}
+            <strong style={{ color: "var(--blood-hi)" }}>sealed cards</strong> are minted as a side-effect; flip them on your own time.
+          </p>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em", marginBottom: 4 }}>
+            YOUR HIGHEST FLIPPED TIER
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "flex-end" }}>
+            <TierBadge tier={6} variant={2} size="md" />
+            <span className="mono" style={{ fontSize: 13, color: "var(--bone)" }}>#6969</span>
+          </div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 6, letterSpacing: "0.1em" }}>
+            (drives V2 buffs — reserved interface)
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: "20px 60px 36px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
+        <div style={{ border: "1px solid var(--ink-400)", borderRadius: 8, background: "var(--ink-200)", padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", borderBottom: "1px solid var(--ink-400)" }}>
+            <div style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--acid)", borderBottom: "2px solid var(--acid)", marginBottom: -1, letterSpacing: "0.1em" }}>
+              BUY
             </div>
-          );
-        })}
-      </div>
-      <p className="mt-2 text-[10px] text-zinc-600">
-        高等级卡享受更低 sell tax。Sell tax 100% burn，不进任何池。
-      </p>
-    </div>
-  );
-}
+            <Link href="/caste/sell" style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--blood-hi)", textDecoration: "none", letterSpacing: "0.1em" }}>
+              SELL · 25%
+            </Link>
+          </div>
 
-type Mode = "buy" | "sell";
+          <UnitStepper units={units} />
 
-export default function SwapPage() {
-  const { address, isConnected } = useAccount();
-  const [mode, setMode] = useState<Mode>("buy");
-  const [units, setUnits] = useState(1);
-  const [sellAmount, setSellAmount] = useState("");
-  const [txState, setTxState] = useState<
-    "idle" | "pending" | "confirming" | "success" | "error"
-  >("idle");
-  const [mockResult, setMockResult] = useState<MultiplierIndex | null>(null);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [txError, setTxError] = useState<string | null>(null);
-
-  const tierResult = useHighestTier(address);
-  const tierIdx: TierIndex = (tierResult.data ?? 0) as TierIndex;
-
-  const cost = UNIT_USDC * BigInt(units);
-  const deployed = !!CONTRACTS.hook;
-
-  // Estimated base output: unit × TIER_TOKEN_BASE[tier] (simplified)
-  const estTokenBase = units * Number(
-    [3000n, 6000n, 9000n, 12000n, 15000n, 18000n, 25000n, 35000n, 50000n, 80000n][tierIdx] ?? 3000n
-  );
-
-  const handleMockBuy = useCallback(() => {
-    setIsSpinning(true);
-    setMockResult(null);
-    setTxState("pending");
-
-    setTimeout(() => {
-      // Weighted random roll based on tier probs
-      const probs = MULT_PROBS_BY_TIER[tierIdx];
-      const roll = Math.random() * 100;
-      let cumulative = 0;
-      let resultIdx: MultiplierIndex = 2;
-      for (let i = 0; i < probs.length; i++) {
-        cumulative += probs[i] ?? 0;
-        if (roll < cumulative) {
-          resultIdx = i as MultiplierIndex;
-          break;
-        }
-      }
-      setMockResult(resultIdx);
-      setIsSpinning(false);
-      setTxState("success");
-    }, 2200);
-  }, [tierIdx]);
-
-  const handleMockSell = useCallback(() => {
-    setTxState("pending");
-    setTimeout(() => setTxState("success"), 1200);
-  }, []);
-
-  if (!isConnected) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-        <div className="text-5xl" aria-hidden="true">⚡</div>
-        <h1 className="text-3xl font-black text-zinc-100">Swap $CASTE</h1>
-        <p className="text-zinc-400">连接钱包后开始时时彩交易</p>
-        <CasteConnectButton />
-      </main>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-lg px-4 py-10 sm:px-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-black text-zinc-100">
-          <span aria-hidden="true">⚡</span> Swap
-        </h1>
-        <CasteConnectButton />
-      </div>
-
-      {!deployed && (
-        <div className="mb-4 rounded-xl border border-amber-800 bg-amber-950/50 px-4 py-3 text-sm text-amber-300">
-          合约尚未部署 — 演示模式
-        </div>
-      )}
-
-      {/* Highest tier badge */}
-      {address && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-zinc-400">
-          <span>你的最高级卡：</span>
-          <TierBadge tier={tierIdx} variant={0} size="sm" />
-        </div>
-      )}
-
-      {/* Mode toggle */}
-      <div
-        role="tablist"
-        aria-label="交易方向"
-        className="mb-6 flex rounded-xl border border-zinc-700 bg-zinc-800 p-1"
-      >
-        {(["buy", "sell"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => {
-              setMode(m);
-              setTxState("idle");
-              setMockResult(null);
-            }}
-            className={[
-              "flex-1 rounded-lg py-2 text-sm font-semibold transition",
-              mode === m
-                ? m === "buy"
-                  ? "bg-emerald-700 text-white shadow"
-                  : "bg-red-700 text-white shadow"
-                : "text-zinc-400 hover:text-zinc-200",
-            ].join(" ")}
-          >
-            {m === "buy" ? "📈 买入" : "📉 卖出"}
-          </button>
-        ))}
-      </div>
-
-      {mode === "buy" ? (
-        <section className="flex flex-col gap-4">
-          {/* Unit stepper */}
-          <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
-            <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              购买数量（Unit）
-            </h2>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                aria-label="减少"
-                onClick={() => setUnits(Math.max(1, units - 1))}
-                disabled={units <= 1}
-                className="h-9 w-9 rounded-full border border-zinc-700 bg-zinc-800 text-lg font-bold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
-              >
-                −
-              </button>
-              <span className="tabular-nums w-16 text-center text-2xl font-black text-zinc-100">
-                {units}
-              </span>
-              <button
-                type="button"
-                aria-label="增加"
-                onClick={() => setUnits(Math.min(100, units + 1))}
-                disabled={units >= 100}
-                className="h-9 w-9 rounded-full border border-zinc-700 bg-zinc-800 text-lg font-bold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
-              >
-                +
-              </button>
-              <div className="flex-1 text-right">
-                <div className="tabular-nums text-lg font-bold text-emerald-300">
-                  {formatUsdc(cost)}
-                </div>
-                <div className="text-xs text-zinc-500">
-                  ≈ {estTokenBase.toLocaleString()} $CASTE (base)
-                </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ padding: 14, background: "var(--ink-100)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
+              <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>YOU PAY · USDC</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+                <div className="led" style={{ fontSize: 32, color: "var(--bone)" }}>${fmt(usdcIn)}</div>
+                <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>= {units} × $6.66666</div>
+              </div>
+            </div>
+            <div style={{ padding: 14, background: "linear-gradient(135deg, oklch(0.20 0.06 115 / 0.4), var(--ink-100))", border: "1px solid var(--acid-lo)", borderRadius: 4 }}>
+              <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>YOU GET · $CASTE (CURVE)</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+                <div className="led" style={{ fontSize: 32, color: "var(--acid)" }}>{fmtCaste(casteOut)}</div>
+                <div className="mono" style={{ fontSize: 10, color: "var(--bone-dim)" }}>· no roll, no bonus</div>
               </div>
             </div>
           </div>
 
-          {/* Multiplier table */}
-          <MultiplierTable tierIdx={tierIdx} />
-
-          {/* Multiplier reel result */}
-          {(isSpinning || mockResult !== null) && (
-            <div className="flex justify-center py-4">
-              <MultiplierReel result={mockResult} spinning={isSpinning} />
-            </div>
-          )}
-
-          {txError && (
-            <div role="alert" className="rounded-xl border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
-              {txError}
-            </div>
-          )}
-
-          {txState === "success" && mockResult !== null && (
-            <div className={["rounded-xl border px-4 py-3 text-center font-bold", MULT_COLORS[mockResult]].join(" ")
-              .replace("text-", "border-").split(" ").join(" ") + " bg-zinc-900"}>
-              交易成功！Multiplier: {MULT_OUTCOMES[mockResult]}
-            </div>
-          )}
-
-          {/* Swap button */}
-          <button
-            type="button"
-            onClick={deployed ? undefined : handleMockBuy}
-            disabled={txState === "pending" || txState === "confirming"}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 font-bold text-white shadow-[0_0_20px_rgb(52_211_153/0.3)] transition hover:bg-emerald-500 disabled:opacity-40 active:scale-95"
-          >
-            {txState === "pending" || txState === "confirming" ? (
-              <>
-                <span
-                  className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-white"
-                  aria-hidden="true"
-                />
-                {txState === "pending" ? "签名中…" : "链上确认…"}
-              </>
-            ) : (
-              `📈 Buy ${units} Unit — ${formatUsdc(cost)}`
-            )}
-          </button>
-          <p className="text-center text-xs text-zinc-600">
-            买入 2 区块后异步 execute，由下一笔 swap piggyback 结算
-          </p>
-        </section>
-      ) : (
-        <section className="flex flex-col gap-4">
-          {/* Sell amount input */}
-          <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-              卖出数量（$CASTE）
-            </h2>
-            <input
-              type="number"
-              min="0"
-              placeholder="输入 $CASTE 数量"
-              value={sellAmount}
-              onChange={(e) => setSellAmount(e.target.value)}
-              aria-label="卖出 $CASTE 数量"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-lg font-semibold text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
-            />
+          <div style={{ padding: 12, background: "var(--ink-100)", border: "1px dashed var(--ink-400)", borderRadius: 3, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {([
+              ["pool curve", fmtCaste(casteOut), "var(--acid)"],
+              ["1.5% fee", `−$${fmt(fee)}`, "var(--blood-hi)"],
+              ["sealed cards", `+${willMint}`, "var(--bone)"],
+              ["price impact", "0.04%", "var(--ink-700)"],
+            ] as const).map(([l, v, c], i) => (
+              <div key={i}>
+                <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{l.toUpperCase()}</div>
+                <div className="mono" style={{ fontSize: 12, color: c, marginTop: 2 }}>{v}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Sell tax table */}
-          <SellTaxTable tierIdx={tierIdx} />
+          <button
+            style={{
+              padding: "20px 0",
+              background: "var(--acid)",
+              color: "var(--ink-000)",
+              fontFamily: "var(--f-display)",
+              fontSize: 18,
+              letterSpacing: "0.12em",
+              border: "none",
+              borderRadius: 4,
+              boxShadow: "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)",
+              cursor: "pointer",
+            }}
+          >
+            BUY {units} UNITS · ${fmt(usdcIn)} → {fmtCaste(casteOut)} CASTE + {willMint} SEALED CARDS
+          </button>
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", textAlign: "center" }}>
+            ▸ executes in 1 tx · no multiplier roll · flip cards anytime from /mycards
+          </div>
+        </div>
 
-          <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
-            ⚠️ Sell Tax 100% burn — 不进任何奖池，纯通缩。持仓越久税率越低。
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <SealedPreview units={units} />
+          <FeeAndFomo units={units} usdcIn={usdcIn} />
+        </div>
+      </section>
+
+      <QuietBuyReceipt />
+
+      <section style={{ padding: "20px 60px 32px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
+          <span className="display" style={{ fontSize: 24, color: "var(--bone)" }}>Last Buyer Status</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
+            · BOTH POOLS SETTLE TO LASTBUYER (V1 simplification)
+          </span>
+          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div style={{ position: "relative", padding: 22, border: "1px solid var(--gold-hi)", borderRadius: 8, background: "linear-gradient(135deg, oklch(0.20 0.08 82 / 0.4), var(--ink-200))", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
+            <div className="mono" style={{ fontSize: 10, color: "var(--gold-hi)", letterSpacing: "0.25em", marginBottom: 6 }}>
+              MEGA POOL · ROUND {m.round}
+            </div>
+            <div className="led" style={{ fontSize: 46, color: "var(--gold-hi)", textShadow: "0 0 18px var(--gold)" }}>
+              ${(m.pool / 1e3).toFixed(1)}K
+            </div>
+            <div className="breathe" style={{ marginTop: 12, padding: "10px 14px", background: "var(--jade)", color: "var(--ink-000)", borderRadius: 4, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>👑</span>
+              <div>
+                <div className="display" style={{ fontSize: 14, letterSpacing: "0.18em" }}>YOU ARE LAST BUYER</div>
+                <div className="mono" style={{ fontSize: 9, color: "oklch(0.20 0.04 60)", letterSpacing: "0.12em" }}>
+                  your last buy · {m.lastBuyer.txAgo} ago · +{m.boostLast}s
+                </div>
+              </div>
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
+              ▸ If FOMO countdown hits 0 with no buy after you, the entire mega pool transfers to your wallet.
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 12 }}>
+              <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.18em" }}>COUNTDOWN</span>
+              <span className="led" style={{ fontSize: 22, color: "var(--blood-hi)" }}>
+                {m.deadline.hh}:{m.deadline.mm}:{m.deadline.ss}
+              </span>
+            </div>
           </div>
 
-          {txState === "success" && (
-            <div className="rounded-xl border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-center text-sm font-bold text-emerald-300">
-              卖出成功！
+          <div style={{ padding: 22, border: "1px solid var(--ink-400)", borderRadius: 8, background: "var(--ink-200)" }}>
+            <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em", marginBottom: 6 }}>
+              THIS HOUR&apos;S POOL · epoch {h.epoch}
             </div>
-          )}
+            <div className="led" style={{ fontSize: 46, color: "var(--jade)" }}>${(h.pool / 1e3).toFixed(1)}K</div>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--ink-100)", border: "1px solid var(--ink-400)", borderRadius: 4, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18, opacity: 0.4 }}>👑</span>
+              <div>
+                <div className="display" style={{ fontSize: 14, color: "var(--bone-dim)", letterSpacing: "0.1em" }}>
+                  LAST BUYER · <span style={{ color: "var(--bone)" }}>{h.lastBuyer.addr}</span>
+                </div>
+                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.12em" }}>
+                  · bought {h.lastBuyer.units}u · {h.lastBuyer.txAgo} ago · not you
+                </div>
+              </div>
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
+              ▸ Buy now to overtake them as this hour&apos;s last buyer.<br />
+              ▸ Settles in {h.drawIn.mm}:{h.drawIn.ss}.
+            </div>
+          </div>
+        </div>
+      </section>
 
+      <Footer />
+    </div>
+  );
+}
+
+const stepBtn: React.CSSProperties = {
+  background: "var(--ink-300)",
+  border: "1px solid var(--ink-400)",
+  color: "var(--acid)",
+  fontFamily: "var(--f-display)",
+  fontSize: 28,
+  borderRadius: 4,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+function UnitStepper({ units }: { units: number }) {
+  const presets = [1, 4, 10, 25, 50, 100];
+  return (
+    <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-100)", padding: "20px 22px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-600)" }}>
+          UNITS · 1 UNIT = $6.66666
+        </span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)" }}>balance $12,408</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 56px", gap: 14, alignItems: "stretch" }}>
+        <button style={stepBtn}>−</button>
+        <div style={{ textAlign: "center", padding: "6px 0", background: "var(--ink-000)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
+          <div className="led" style={{ fontSize: 84, color: "var(--acid)", lineHeight: 1, textShadow: "0 0 16px oklch(0.90 0.20 115 / 0.45)" }}>
+            {units}
+          </div>
+          <div className="mono" style={{ fontSize: 10, letterSpacing: "0.35em", color: "var(--ink-600)", marginTop: 4 }}>UNITS</div>
+        </div>
+        <button style={stepBtn}>+</button>
+      </div>
+
+      <div style={{ marginTop: 18, position: "relative" }}>
+        <div style={{ height: 8, background: "var(--ink-300)", borderRadius: 4, border: "1px solid var(--ink-400)", overflow: "hidden", position: "relative" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${units}%`, background: "linear-gradient(90deg, var(--acid-lo), var(--acid))" }} />
+          <div style={{ position: "absolute", left: "4%", top: 0, bottom: 0, width: 2, background: "var(--blood-hi)", opacity: 0.6 }} />
+        </div>
+        <div style={{ position: "absolute", top: 2, left: `${units}%`, transform: "translate(-50%, -2px)", width: 14, height: 16, background: "var(--acid)", borderRadius: 2, boxShadow: "0 0 10px var(--acid)", border: "1px solid var(--ink-000)" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+        <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>1</span>
+        <span className="mono" style={{ fontSize: 9, color: "var(--blood-hi)" }}>↑ 4 = max sealed cards / buy</span>
+        <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>100 max</span>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginTop: 16 }}>
+        {presets.map((p) => (
           <button
-            type="button"
-            onClick={deployed ? undefined : handleMockSell}
-            disabled={
-              (!sellAmount || Number(sellAmount) <= 0) ||
-              txState === "pending" ||
-              txState === "confirming"
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 py-3.5 font-bold text-white transition hover:bg-red-600 disabled:opacity-40 active:scale-95"
+            key={p}
+            style={{
+              flex: 1,
+              padding: "8px 0",
+              background: p === units ? "var(--acid)" : "var(--ink-300)",
+              color: p === units ? "var(--ink-000)" : "var(--ink-700)",
+              border: `1px solid ${p === units ? "var(--acid)" : "var(--ink-400)"}`,
+              fontFamily: "var(--f-mono)",
+              fontSize: 11,
+              letterSpacing: "0.1em",
+              borderRadius: 3,
+              cursor: "pointer",
+            }}
           >
-            {txState === "pending" || txState === "confirming" ? (
-              <>
-                <span
-                  className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-white"
-                  aria-hidden="true"
-                />
-                {txState === "pending" ? "签名中…" : "确认中…"}
-              </>
-            ) : (
-              "📉 Sell — 立即执行"
-            )}
+            {p}
           </button>
-        </section>
-      )}
-    </main>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SealedPreview({ units }: { units: number }) {
+  const willMint = Math.min(units, MAX_CARDS_PER_BUY);
+  return (
+    <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+        <span className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-600)" }}>
+          YOU&apos;LL RECEIVE · SEALED CARDS
+        </span>
+        <span className="mono" style={{ fontSize: 9, color: "var(--blood-hi)", letterSpacing: "0.15em" }}>
+          FLIP LATER FROM /MYCARDS
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 18, alignItems: "center" }}>
+        <div style={{ position: "relative", width: 130, height: 130 }}>
+          {Array.from({ length: willMint }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: i * 10,
+                top: i * 8,
+                width: 80,
+                height: 112,
+                background: "linear-gradient(160deg, var(--ink-300), var(--ink-100))",
+                border: "1px solid var(--ink-500)",
+                borderRadius: 4,
+                boxShadow: "0 6px 14px oklch(0 0 0 / 0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.3, borderRadius: 4 }} />
+              <span className="display" style={{ fontSize: 36, color: "oklch(1 0 0 / 0.4)" }}>?</span>
+              <div
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  left: 4,
+                  padding: "1px 4px",
+                  background: "var(--blood)",
+                  color: "var(--bone)",
+                  fontFamily: "var(--f-mono)",
+                  fontSize: 6,
+                  letterSpacing: "0.15em",
+                }}
+              >
+                SEALED
+              </div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span className="led" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>
+              {willMint}
+            </span>
+            <span className="display" style={{ fontSize: 16, color: "var(--bone-dim)", letterSpacing: "0.05em" }}>
+              sealed cards minted
+            </span>
+          </div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 8, lineHeight: 1.6 }}>
+            ▸ <strong style={{ color: "var(--bone)" }}>No attributes</strong> until you flip — same look as everyone else&apos;s cover.<br />
+            ▸ Flip later (any block ≥ commit + 2). Payout from buffer, sent same tx.<br />
+            {units > MAX_CARDS_PER_BUY ? (
+              <span style={{ color: "var(--blood-hi)" }}>
+                ▸ Excess units ({units - MAX_CARDS_PER_BUY}) buy CASTE but no extra cards.
+              </span>
+            ) : (
+              <span>▸ Cap is 4 per buy — extra units only buy CASTE.</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeeAndFomo({ units, usdcIn }: { units: number; usdcIn: number }) {
+  const fee = usdcIn * 0.015;
+  const toHourly = usdcIn * 0.01;
+  const toMega = usdcIn * 0.005;
+  const fomoAdd = Math.round(60 * log10(units) * 10) / 10;
+
+  return (
+    <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
+      <div className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-600)", marginBottom: 12 }}>
+        FEE + FOMO IMPACT
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span className="display" style={{ fontSize: 26, color: "var(--bone)" }}>1.5%</span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>buy fee · ${fmt(fee)}</span>
+        <div style={{ flex: 1, height: 8, display: "flex", border: "1px solid var(--ink-400)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ flex: 2, background: "var(--jade)" }} />
+          <div style={{ flex: 1, background: "var(--gold-hi)" }} />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ borderLeft: "2px solid var(--jade)", paddingLeft: 10 }}>
+          <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.15em" }}>1.0% → HOURLY · lastBuyer wins</div>
+          <div className="led" style={{ fontSize: 18, color: "var(--jade)" }}>${fmt(toHourly)}</div>
+        </div>
+        <div style={{ borderLeft: "2px solid var(--gold-hi)", paddingLeft: 10 }}>
+          <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.15em" }}>0.5% → MEGA · last on FOMO=0</div>
+          <div className="led" style={{ fontSize: 18, color: "var(--gold-hi)" }}>${fmt(toMega)}</div>
+        </div>
+      </div>
+      <div
+        style={{
+          marginTop: 14,
+          padding: 10,
+          background: "oklch(0.18 0.06 25 / 0.18)",
+          border: "1px solid var(--blood-lo)",
+          borderRadius: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span className="mono" style={{ fontSize: 10, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>🔥 FOMO DEADLINE</span>
+        <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span className="led" style={{ fontSize: 22, color: "var(--blood-hi)" }}>+{fomoAdd}s</span>
+          <span className="mono" style={{ fontSize: 9, color: "var(--ink-700)" }}>= 60 × log10({units})</span>
+        </span>
+      </div>
+      <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
+        ▸ <strong style={{ color: "var(--bone)" }}>Each buy makes YOU the lastBuyer</strong> of this epoch (hourly) and globally (mega).<br />
+        ▸ Buy more → push the deadline further. Be the last → win the pot.
+      </div>
+    </div>
+  );
+}
+
+function QuietBuyReceipt() {
+  const b = LAST_BUY_V1;
+  return (
+    <section style={{ padding: "20px 60px 32px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
+        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-700)" }}>● LAST TX · QUIET RECEIPT</span>
+        <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+        <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
+          {b.tx} · block {b.block.toLocaleString()} · {b.ago} ago
+        </span>
+      </div>
+
+      <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 20, position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, var(--jade), transparent 60%)" }} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.2fr", gap: 18, alignItems: "center" }}>
+          <div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>PAID</div>
+            <div className="led" style={{ fontSize: 28, color: "var(--bone-dim)", marginTop: 4 }}>−${fmt(b.usdcIn)}</div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>
+              {b.units} units · 1.5% fee ${fmt(b.fee)}
+            </div>
+          </div>
+          <div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--jade)", letterSpacing: "0.2em" }}>+ CASTE · POOL CURVE</div>
+            <div className="led" style={{ fontSize: 28, color: "var(--jade)", marginTop: 4 }}>+{fmtCaste(b.casteOut)}</div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>credited to balance · no bonus, no roll</div>
+          </div>
+          <div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>+ SEALED CARDS</div>
+            <div className="led" style={{ fontSize: 28, color: "var(--blood-hi)", marginTop: 4 }}>+{b.sealedMinted}</div>
+            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>#{b.serialFrom} – #{b.serialTo}</div>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            {Array.from({ length: b.sealedMinted }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 56,
+                  height: 78,
+                  background: "linear-gradient(160deg, var(--ink-300), var(--ink-100))",
+                  border: "1px solid var(--ink-500)",
+                  borderRadius: 3,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+                <span
+                  className="display"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 22,
+                    color: "oklch(1 0 0 / 0.5)",
+                  }}
+                >
+                  ?
+                </span>
+                <div className="mono" style={{ position: "absolute", bottom: 2, right: 3, fontSize: 6, color: "oklch(1 0 0 / 0.5)" }}>
+                  #{b.serialFrom + i}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 18,
+            padding: "10px 14px",
+            borderTop: "1px dashed var(--ink-400)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--jade)", boxShadow: "0 0 8px var(--jade)" }} />
+            <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>
+              BuyExecuted({b.units}u, {Math.floor(b.casteOut / 1e3)}k CASTE) · 4× CardMinted
+            </span>
+          </div>
+          <Link
+            href="/caste/mycards"
+            style={{
+              padding: "6px 14px",
+              background: "var(--ink-300)",
+              color: "var(--acid)",
+              border: "1px solid var(--acid-lo)",
+              borderRadius: 3,
+              fontFamily: "var(--f-mono)",
+              fontSize: 11,
+              letterSpacing: "0.15em",
+              textDecoration: "none",
+            }}
+          >
+            → FLIP IN /MYCARDS
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

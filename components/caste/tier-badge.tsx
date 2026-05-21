@@ -1,52 +1,58 @@
-import { TIER_EMOJIS, TIER_NAMES, VARIANT_NAMES } from "@/lib/caste/constants";
-import type { TierIndex, VariantIndex } from "@/lib/caste/types";
+import { TIERS, VARIANTS } from "@/lib/caste/mock";
 
-const VARIANT_RING: Record<number, string> = {
-  0: "ring-zinc-700",       // Common
-  1: "ring-cyan-500",       // Rare
-  2: "ring-fuchsia-500",    // Mythic
-};
+type Size = "sm" | "md" | "lg";
 
-const VARIANT_GLOW: Record<number, string> = {
-  0: "",
-  1: "shadow-[0_0_12px_rgb(6_182_212/0.5)]",
-  2: "shadow-[0_0_20px_rgb(192_38_211/0.7)]",
-};
-
-export function TierBadge({
-  tier,
-  variant,
-  size = "md",
-}: {
-  tier: TierIndex;
-  variant: VariantIndex;
-  size?: "sm" | "md" | "lg";
-}) {
-  const sizeClass = {
-    sm: "px-2 py-0.5 text-xs gap-1",
-    md: "px-3 py-1 text-sm gap-1.5",
-    lg: "px-4 py-1.5 text-base gap-2",
+export function TierBadge({ tier, variant = 0, size = "md" }: { tier: number; variant?: number; size?: Size }) {
+  const t = TIERS[tier];
+  const v = VARIANTS[variant];
+  if (!t || !v) return null;
+  const sizes = {
+    sm: { pad: "3px 8px", font: 10, emoji: 11 },
+    md: { pad: "5px 12px", font: 12, emoji: 14 },
+    lg: { pad: "8px 18px", font: 16, emoji: 20 },
   }[size];
+
+  const ringColor =
+    variant === 2 ? "var(--orchid)" : variant === 1 ? "var(--gold)" : "var(--ink-400)";
+  const ringGlow =
+    variant === 2
+      ? "0 0 14px oklch(0.62 0.24 320 / 0.5)"
+      : variant === 1
+      ? "0 0 10px oklch(0.82 0.16 82 / 0.35)"
+      : "none";
 
   return (
     <span
-      className={[
-        "inline-flex items-center rounded-full font-semibold ring-1",
-        "bg-zinc-800/80 text-zinc-100",
-        VARIANT_RING[variant],
-        VARIANT_GLOW[variant],
-        sizeClass,
-      ].join(" ")}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: sizes.pad,
+        borderRadius: 999,
+        border: `1px solid ${ringColor}`,
+        background: `linear-gradient(180deg, ${t.color} 0%, oklch(0.20 0.01 60) 100%)`,
+        backgroundBlendMode: "multiply",
+        boxShadow: ringGlow,
+        fontFamily: "var(--f-body)",
+        fontWeight: 700,
+        fontSize: sizes.font,
+        color: "var(--bone)",
+        letterSpacing: "0.02em",
+        textShadow: "0 1px 0 rgb(0 0 0 / 0.5)",
+      }}
     >
-      <span aria-hidden="true">{TIER_EMOJIS[tier]}</span>
-      <span>{TIER_NAMES[tier]}</span>
+      <span style={{ fontSize: sizes.emoji }}>{t.emoji}</span>
+      <span className="display">{t.cn}</span>
       {variant > 0 && (
         <span
-          className={
-            variant === 2 ? "text-fuchsia-400" : "text-cyan-400"
-          }
+          className="mono"
+          style={{
+            fontSize: sizes.font - 2,
+            color: variant === 2 ? "var(--orchid)" : "var(--gold-hi)",
+            letterSpacing: "0.1em",
+          }}
         >
-          · {VARIANT_NAMES[variant]}
+          · {v.cn === "RARE" ? "RARE" : "MYTHIC"}
         </span>
       )}
     </span>

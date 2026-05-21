@@ -1,52 +1,107 @@
 import type { ReactNode } from "react";
 
+type Tone = "neutral" | "acid" | "blood" | "gold" | "jade" | "orchid" | "cobalt";
+
+const TONES: Record<Tone, { accent: string; border: string }> = {
+  neutral: { accent: "var(--bone)",     border: "var(--ink-400)" },
+  acid:    { accent: "var(--acid)",     border: "var(--acid-lo)" },
+  blood:   { accent: "var(--blood-hi)", border: "var(--blood-lo)" },
+  gold:    { accent: "var(--gold-hi)",  border: "oklch(0.58 0.10 82)" },
+  jade:    { accent: "var(--jade)",     border: "oklch(0.45 0.10 155)" },
+  orchid:  { accent: "var(--orchid)",   border: "oklch(0.45 0.14 320)" },
+  cobalt:  { accent: "var(--cobalt)",   border: "oklch(0.45 0.14 245)" },
+};
+
 export function StatCard({
   label,
   value,
-  sub,
-  tone = "default",
+  meta,
+  tone = "neutral",
+  deltaPos = false,
+  w,
+  size = "md",
 }: {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
-  sub?: ReactNode;
-  tone?: "default" | "fuchsia" | "amber" | "emerald" | "red";
+  meta?: ReactNode;
+  tone?: Tone;
+  deltaPos?: boolean;
+  w?: number | string;
+  size?: "md" | "lg";
 }) {
-  const toneClass: Record<string, string> = {
-    default: "border-zinc-700 bg-zinc-800/60",
-    fuchsia: "border-fuchsia-800 bg-fuchsia-950/60",
-    amber: "border-amber-800 bg-amber-950/60",
-    emerald: "border-emerald-800 bg-emerald-950/60",
-    red: "border-red-800 bg-red-950/60",
-  };
-
-  const dotClass: Record<string, string> = {
-    default: "bg-zinc-500",
-    fuchsia: "bg-fuchsia-400",
-    amber: "bg-amber-400",
-    emerald: "bg-emerald-400",
-    red: "bg-red-400",
-  };
-
+  const tones = TONES[tone] ?? TONES.neutral;
   return (
     <div
-      className={[
-        "flex flex-col gap-1.5 rounded-2xl border p-4",
-        toneClass[tone],
-      ].join(" ")}
+      style={{
+        width: w ?? "auto",
+        padding: size === "lg" ? "20px 22px" : "14px 16px",
+        background: "linear-gradient(180deg, var(--ink-200), var(--ink-100))",
+        border: `1px solid ${tones.border}`,
+        borderRadius: 6,
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-          {label}
-        </span>
-        <span
-          className={["h-2 w-2 rounded-full", dotClass[tone]].join(" ")}
-          aria-hidden="true"
-        />
+      <div
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          width: 8,
+          height: 8,
+          borderTop: `1px solid ${tones.accent}`,
+          borderRight: `1px solid ${tones.accent}`,
+          opacity: 0.6,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 6,
+          left: 6,
+          width: 8,
+          height: 8,
+          borderBottom: `1px solid ${tones.accent}`,
+          borderLeft: `1px solid ${tones.accent}`,
+          opacity: 0.6,
+        }}
+      />
+      <div
+        className="mono"
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.25em",
+          color: "var(--ink-600)",
+          textTransform: "uppercase",
+          marginBottom: 8,
+        }}
+      >
+        {label}
       </div>
-      <div className="tabular-nums text-xl font-bold text-zinc-100">{value}</div>
-      {sub ? (
-        <div className="text-xs text-zinc-500">{sub}</div>
-      ) : null}
+      <div
+        className="led"
+        style={{
+          fontSize: size === "lg" ? 56 : 38,
+          color: tones.accent,
+          lineHeight: 1,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </div>
+      {meta && (
+        <div
+          className="mono"
+          style={{
+            fontSize: 10,
+            color: deltaPos ? "var(--jade)" : "var(--ink-700)",
+            marginTop: 8,
+            letterSpacing: "0.05em",
+          }}
+        >
+          {meta}
+        </div>
+      )}
     </div>
   );
 }
