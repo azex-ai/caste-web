@@ -1,19 +1,33 @@
-import { Fragment } from "react";
-import { Ticker, Footer } from "@/components/caste/caste-chrome";
-import { PHASE_STATE, ME_V1 } from "@/lib/caste/mock";
+"use client";
 
-export const dynamic = "force-static";
+import { Fragment } from "react";
+import { useAccount } from "wagmi";
+
+import { Ticker, Footer } from "@/components/caste/caste-chrome";
+import { ME_V1 } from "@/lib/caste/mock";
+import { useStats } from "@/lib/caste/hooks";
+import { useSellCaste } from "@/lib/caste/writes";
+
+const ONE_E18 = 10n ** 18n;
 
 const PRICE_CASTE = 0.0000476;
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 export default function SellV1Page() {
+  const { data: stats } = useStats();
   const sellAmount = 14200;
+  const cardsMinted = stats?.cardsMinted ?? 0;
+  const fomoLeft = stats?.fomoSecondsLeft ?? 0;
+  const fomoHh = Math.floor(fomoLeft / 3600).toString().padStart(2, "0");
+  const fomoMm = Math.floor((fomoLeft % 3600) / 60).toString().padStart(2, "0");
+  const fomoSs = (fomoLeft % 60).toString().padStart(2, "0");
+  const phaseA = cardsMinted < 10_000;
+
   const tickerItems = [
-    { tag: "▸ PHASE A", text: `${PHASE_STATE.cardsMinted}/10,000 minted · sell tax 25% · drops to 1.5% at 10,000`, color: "var(--blood-hi)" },
-    { tag: "▸ TAX",     text: "16.67% to hourly + 8.33% to mega · both pots settle to lastBuyer", color: "var(--bone-dim)" },
-    { tag: "▸ MEGA",    text: "$184K · last buyer YOU 0x6e91…aa83 · countdown 06:17:42", color: "var(--gold-hi)" },
+    { tag: "▸ PHASE A", text: `${cardsMinted.toLocaleString()}/10,000 minted · sell tax ${phaseA ? "25%" : "1.5%"} · ${phaseA ? "drops to 1.5% at 10,000" : "Phase B unlocked"}`, color: "var(--blood-hi)" },
+    { tag: "▸ TAX",     text: "16.67% → hourly · 8.33% → mega · both pots settle to lastBuyer", color: "var(--bone-dim)" },
+    { tag: "▸ MEGA",    text: `FOMO ${fomoHh}:${fomoMm}:${fomoSs} → last buyer wins`, color: "var(--gold-hi)" },
   ];
 
   return (
@@ -45,7 +59,7 @@ export default function SellV1Page() {
       </section>
 
       <section style={{ padding: "20px 60px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
-        <SellComposer amount={sellAmount} phase="A" />
+        <SellComposer amount={sellAmount} phase="A" cardsMinted={cardsMinted} />
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <FeeFlow amount={sellAmount} phase="A" />
           <PhaseCompare />
@@ -65,7 +79,7 @@ export default function SellV1Page() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
-          <SellComposer amount={sellAmount} phase="B" />
+          <SellComposer amount={sellAmount} phase="B" cardsMinted={cardsMinted} />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ position: "relative", padding: 22, border: "1px solid var(--jade)", borderRadius: 6, background: "linear-gradient(135deg, oklch(0.20 0.10 155 / 0.3), var(--ink-200))", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--jade), oklch(0.65 0.12 145), var(--jade))" }} />
@@ -91,7 +105,9 @@ export default function SellV1Page() {
 
 type Phase = "A" | "B";
 
-function SellComposer({ amount, phase }: { amount: number; phase: Phase }) {
+function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: Phase; cardsMinted: number }) {
+  const { address } = useAccount();
+  const sell = useSellCaste();
   const usdcGross = amount * PRICE_CASTE;
   const taxPct = phase === "A" ? 25 : 1.5;
   const hourlyPct = phase === "A" ? 16.67 : 1.0;
@@ -130,7 +146,7 @@ function SellComposer({ amount, phase }: { amount: number; phase: Phase }) {
             <div className="mono" style={{ fontSize: 11, color: "var(--bone)", letterSpacing: "0.1em", lineHeight: 1.7 }}>
               {phase === "A" ? (
                 <>
-                  ▸ While cards are still minting (currently <strong style={{ color: accent }}>{PHASE_STATE.cardsMinted.toLocaleString()} / 10,000</strong>), every sell pays{" "}
+                  ▸ While cards are still minting (currently <strong style={{ color: accent }}>{cardsMinted.toLocaleString()} / 10,000</strong>), every sell pays{" "}
                   <strong style={{ color: accent }}>25% to the lottery pots</strong>.<br />
                   ▸ Drops to <span style={{ color: "var(--jade)" }}>1.5%</span> when the last sealed card mints — the Phase A → B switch is automatic, atomic, irreversible.<br />
                   ▸ <strong style={{ color: "var(--bone)" }}>Patient holders earn</strong> while impatient sellers subsidize the pools.
@@ -236,23 +252,39 @@ function SellComposer({ amount, phase }: { amount: number; phase: Phase }) {
       )}
 
       <button
+        disabled={!address || sell.isPending}
+        onClick={() => sell.mutate({ amount: BigInt(amount) * ONE_E18 })}
         style={{
           padding: "20px 0",
-          background: accent,
-          color: "var(--bone)",
+          background: !address || sell.isPending ? "var(--ink-300)" : accent,
+          color: !address || sell.isPending ? "var(--ink-600)" : "var(--bone)",
           fontFamily: "var(--f-display)",
           fontSize: 18,
           letterSpacing: "0.12em",
           border: "none",
           borderRadius: 4,
-          boxShadow: `0 6px 0 ${phase === "A" ? "var(--blood-lo)" : "oklch(0.45 0.10 155)"}, 0 16px 32px oklch(0.62 0.24 25 / 0.4)`,
-          cursor: "pointer",
+          boxShadow: !address || sell.isPending ? "none" : `0 6px 0 ${phase === "A" ? "var(--blood-lo)" : "oklch(0.45 0.10 155)"}, 0 16px 32px oklch(0.62 0.24 25 / 0.4)`,
+          cursor: !address || sell.isPending ? "not-allowed" : "pointer",
         }}
       >
-        {phase === "A"
+        {!address
+          ? "CONNECT WALLET TO SELL"
+          : sell.isPending
+          ? "SELLING…"
+          : phase === "A"
           ? `SELL ${fmtNum(amount)} · PAY ${taxPct}% TAX · GET $${fmt(usdcNet)}`
           : `SELL ${fmtNum(amount)} · GET $${fmt(usdcNet)}`}
       </button>
+      {sell.isError && (
+        <div className="mono" style={{ fontSize: 11, color: "var(--blood-hi)", letterSpacing: "0.05em", textAlign: "center", padding: 8, border: "1px dashed var(--blood-lo)", borderRadius: 4 }}>
+          ✗ {sell.error?.message ?? "tx failed"}
+        </div>
+      )}
+      {sell.isSuccess && (
+        <div className="mono" style={{ fontSize: 11, color: "var(--jade)", letterSpacing: "0.05em", textAlign: "center", padding: 8, border: "1px dashed var(--jade)", borderRadius: 4 }}>
+          ✓ sold @ block {sell.data.blockNumber.toString()}
+        </div>
+      )}
       <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", textAlign: "center" }}>
         ▸ Phase {phase} · tax is locked by protocol · trigger is <code>card.totalSupply() == 10000</code>
       </div>

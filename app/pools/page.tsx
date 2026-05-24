@@ -1,17 +1,33 @@
+"use client";
+
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { Countdown } from "@/components/caste/countdown-clock";
-import { PHASE_STATE, POOLS_V1, LASTBUYER_FEED } from "@/lib/caste/mock";
+import { POOLS_V1, LASTBUYER_FEED } from "@/lib/caste/mock";
+import { useStats } from "@/lib/caste/hooks";
 
-export const dynamic = "force-static";
+const ONE_E18 = 10n ** 18n;
 
 export default function PoolsV1Page() {
+  const { data: stats } = useStats();
+  // POOLS_V1 still backs LP/hourly/mega pool size and last-buyer info
+  // until the indexer ingests pool-side state (on-chain reads land in section 4).
   const p = POOLS_V1;
-  const bufferPct = (p.buffer.remaining / p.buffer.initial) * 100;
+
+  const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : p.buffer.remaining;
+  const bufferStart = stats ? Number(BigInt(stats.bufferStart) / ONE_E18) : p.buffer.initial;
+  const bufferDrained = stats ? Number(BigInt(stats.bufferPaid) / ONE_E18) : p.buffer.drained;
+  const bufferPct = bufferStart > 0 ? (bufferRemaining / bufferStart) * 100 : 0;
+  const flipsExecuted = stats?.cardsFlipped ?? p.buffer.flipsExecuted;
+  const flipsRemaining = stats ? Number(BigInt(stats.bufferRemaining) / (13_900n * ONE_E18)) : p.buffer.flipsRemaining;
+  const fomoLeft = stats?.fomoSecondsLeft ?? 0;
+  const fomoHh = Math.floor(fomoLeft / 3600).toString().padStart(2, "0");
+  const fomoMm = Math.floor((fomoLeft % 3600) / 60).toString().padStart(2, "0");
+  const fomoSs = (fomoLeft % 60).toString().padStart(2, "0");
 
   const tickerItems = [
-    { tag: "▸ MEGA",   text: `$${p.mega.pool.toLocaleString()} → ${p.mega.lastBuyer.addr} · deadline ${p.mega.deadline.hh}:${p.mega.deadline.mm}:${p.mega.deadline.ss}`, color: "var(--gold-hi)" },
-    { tag: "▸ HOURLY", text: `$${p.hourly.pool.toLocaleString(undefined, { maximumFractionDigits: 0 })} · last buyer ${p.hourly.lastBuyer.addr} · draw ${p.hourly.drawIn.mm}:${p.hourly.drawIn.ss}`, color: "var(--jade)" },
-    { tag: "▸ BUFFER", text: `${(p.buffer.remaining / 1e9).toFixed(2)}B CASTE · ${p.buffer.flipsExecuted.toLocaleString()} flips paid · ~${(p.buffer.flipsRemaining / 1000).toFixed(0)}k left`, color: "var(--orchid)" },
+    { tag: "▸ BUFFER", text: `${(bufferRemaining / 1e9).toFixed(2)}B CASTE · ${flipsExecuted.toLocaleString()} flips paid · ~${(flipsRemaining / 1000).toFixed(0)}k left`, color: "var(--orchid)" },
+    { tag: "▸ FOMO",   text: `mega deadline ${fomoHh}:${fomoMm}:${fomoSs}`, color: "var(--gold-hi)" },
+    { tag: "▸ CARDS",  text: `${(stats?.cardsMinted ?? 0).toLocaleString()} / 10,000 minted · ${(stats?.mythicCount ?? 0)} mythic flips`, color: "var(--jade)" },
   ];
 
   return (
@@ -39,9 +55,9 @@ export default function PoolsV1Page() {
       <section style={{ padding: "20px 60px 28px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
           <PoolSummaryCard color="var(--cobalt)"  label="01 · LP"          value={`${(p.lp.caste / 1e9).toFixed(2)}B`}                        subValue={`+ $${(p.lp.usdc / 1000).toFixed(0)}K USDC`} meta="single-sided · permanent · JIT-locked 64 blk" emoji="🔒" />
-          <PoolSummaryCard color="var(--orchid)"  label="02 · CARD BUFFER" value={`${(p.buffer.remaining / 1e9).toFixed(2)}B`}                  subValue={`${bufferPct.toFixed(1)}% remaining`}      meta="one-way drain · flip payouts only" emoji="🃏" />
-          <PoolSummaryCard color="var(--jade)"    label="03 · HOURLY"      value={`$${p.hourly.pool.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} subValue={`epoch ${p.epoch}`}      meta={`→ lastBuyer · draw in ${p.hourly.drawIn.mm}:${p.hourly.drawIn.ss}`} emoji="⏰" />
-          <PoolSummaryCard color="var(--gold-hi)" label="04 · MEGA"        value={`$${p.mega.pool.toLocaleString()}`}                          subValue={`round ${p.mega.round.toString().padStart(2, "0")}`} meta={`→ lastBuyer · FOMO ${p.mega.deadline.hh}:${p.mega.deadline.mm}:${p.mega.deadline.ss}`} emoji="👑" />
+          <PoolSummaryCard color="var(--orchid)"  label="02 · CARD BUFFER" value={`${(bufferRemaining / 1e9).toFixed(2)}B`}                    subValue={`${bufferPct.toFixed(1)}% remaining`}      meta="one-way drain · flip payouts only" emoji="🃏" />
+          <PoolSummaryCard color="var(--jade)"    label="03 · HOURLY"      value="—"                                                          subValue="pool size from chain" meta="→ lastBuyer · live read pending" emoji="⏰" />
+          <PoolSummaryCard color="var(--gold-hi)" label="04 · MEGA"        value="—"                                                          subValue={`FOMO ${fomoHh}:${fomoMm}:${fomoSs}`}      meta="→ lastBuyer · live read pending" emoji="👑" />
         </div>
       </section>
 
@@ -124,14 +140,14 @@ export default function PoolsV1Page() {
                   REMAINING · OF 4.2B INITIAL
                 </div>
                 <div className="led" style={{ fontSize: 52, color: "var(--bone)", lineHeight: 0.9 }}>
-                  {(p.buffer.remaining / 1e9).toFixed(2)}B
+                  {(bufferRemaining / 1e9).toFixed(2)}B
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em" }}>DRAINED LIFETIME</div>
-                <div className="led" style={{ fontSize: 32, color: "var(--orchid)" }}>{(p.buffer.drained / 1e6).toFixed(0)}M</div>
+                <div className="led" style={{ fontSize: 32, color: "var(--orchid)" }}>{(bufferDrained / 1e6).toFixed(0)}M</div>
                 <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)" }}>
-                  {p.buffer.flipsExecuted.toLocaleString()} flips · avg {(p.buffer.avgPayout / 1000).toFixed(1)}k / flip
+                  {flipsExecuted.toLocaleString()} flips · avg {(p.buffer.avgPayout / 1000).toFixed(1)}k / flip
                 </div>
               </div>
             </div>
@@ -160,7 +176,7 @@ export default function PoolsV1Page() {
               <div>
                 <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>EST. FLIPS LEFT</div>
                 <div className="led" style={{ fontSize: 24, color: "var(--orchid)", marginTop: 2 }}>
-                  {(p.buffer.flipsRemaining / 1000).toFixed(0)}k
+                  {(flipsRemaining / 1000).toFixed(0)}k
                 </div>
               </div>
               <div>

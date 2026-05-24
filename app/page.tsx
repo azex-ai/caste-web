@@ -1,21 +1,62 @@
+"use client";
+
 import Link from "next/link";
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { SealedCard } from "@/components/caste/sealed-card";
 import { CasteCard } from "@/components/caste/caste-card";
 import { StatCard } from "@/components/caste/stat-card";
 import { Countdown } from "@/components/caste/countdown-clock";
-import { MOCK_CARDS, PHASE_STATE, POOLS_V1 } from "@/lib/caste/mock";
+import { useRecentFlips, useStats } from "@/lib/caste/hooks";
+import type { CardData } from "@/lib/caste/types";
+import type { CardRow, FlipRow } from "@/lib/caste/response-types";
 
-export const dynamic = "force-static";
+const ONE_E18 = 10n ** 18n;
+const CARDS_CAP = 10_000;
+
+function shortAddr(a?: string | null): string {
+  if (!a || a.length < 12) return a ?? "—";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function fmtAgo(ts: bigint, nowSec: number): string {
+  const diff = nowSec - Number(ts);
+  if (diff < 60) return `${Math.max(diff, 0)}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function flipToCard(f: FlipRow): CardData {
+  return { id: Number(f.tokenId), tier: f.tier, variant: f.variant, sig: 0, traits: [0, 1, 2], swaps: 0, jackpots: 0 };
+}
+
+function fmtPayout(payoutCaste: number): string {
+  if (payoutCaste >= 1e6) return `${(payoutCaste / 1e6).toFixed(2)}M`;
+  if (payoutCaste >= 1e3) return `${(payoutCaste / 1e3).toFixed(1)}K`;
+  return payoutCaste.toLocaleString();
+}
 
 export default function LandingV1Page() {
-  const phase = POOLS_V1;
+  const { data: stats } = useStats();
+  const { data: flips = [] } = useRecentFlips(8);
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  const cardsMinted = stats?.cardsMinted ?? 0;
+  const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
+  const bufferStart = stats ? Number(BigInt(stats.bufferStart) / ONE_E18) : 4_200_000_000;
+  const flipsRemaining = stats ? Number(BigInt(stats.bufferRemaining) / (13_900n * ONE_E18)) : 0;
+  const fomoLeft = stats?.fomoSecondsLeft ?? 0;
+  const megaHh = Math.floor(fomoLeft / 3600).toString().padStart(2, "0");
+  const megaMm = Math.floor((fomoLeft % 3600) / 60).toString().padStart(2, "0");
+  const megaSs = (fomoLeft % 60).toString().padStart(2, "0");
+
+  const latestFlip = flips[0];
+  const recentForGrid = flips.slice(0, 4);
+
   const tickerItems = [
-    { tag: "▸ BUY",     text: "0x9f3a…ce21 just sealed 4 cards — flipping in 14s", color: "var(--acid)" },
-    { tag: "▸ FLIP",    text: "cz.eth ripped MYTHIC CEX · paid 2.4M CASTE from buffer", color: "var(--gold-hi)" },
-    { tag: "▸ PHASE A", text: `${PHASE_STATE.cardsMinted.toLocaleString()} / ${PHASE_STATE.cardsCap.toLocaleString()} cards minted · 25% sell tax active`, color: "var(--blood-hi)" },
-    { tag: "▸ BUFFER",  text: `${(phase.buffer.remaining / 1e9).toFixed(2)}B / 4.2B CASTE left · ~${(phase.buffer.flipsRemaining / 1000).toFixed(0)}k flips before depletion`, color: "var(--orchid)" },
-    { tag: "▸ MEGA",    text: `$${phase.mega.pool.toLocaleString()} → last buyer (you) at deadline-zero`, color: "var(--gold-hi)" },
+    { tag: "▸ PHASE A", text: `${cardsMinted.toLocaleString()} / ${CARDS_CAP.toLocaleString()} cards minted · 25% sell tax active`, color: "var(--blood-hi)" },
+    { tag: "▸ BUFFER",  text: `${(bufferRemaining / 1e9).toFixed(2)}B / ${(bufferStart / 1e9).toFixed(1)}B CASTE left · ~${(flipsRemaining / 1000).toFixed(0)}k flips before depletion`, color: "var(--orchid)" },
+    { tag: "▸ FLIP",    text: latestFlip ? `${shortAddr(latestFlip.owner)} flipped ${fmtPayout(Number(BigInt(latestFlip.payout) / ONE_E18))} CASTE · ${fmtAgo(BigInt(latestFlip.blockTime), nowSec)} ago` : "no flips yet", color: "var(--gold-hi)" },
   ];
 
   return (
@@ -31,7 +72,7 @@ export default function LandingV1Page() {
             <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
               <span className="chip chip--blood breathe">● PHASE A · MINT WINDOW</span>
               <span className="chip chip--acid">v4 HOOK · MAINNET</span>
-              <span className="chip">{PHASE_STATE.cardsCap - PHASE_STATE.cardsMinted} CARDS LEFT</span>
+              <span className="chip">{(CARDS_CAP - cardsMinted).toLocaleString()} CARDS LEFT</span>
             </div>
 
             <h1 style={{ margin: 0, lineHeight: 0.86 }}>
@@ -82,16 +123,16 @@ export default function LandingV1Page() {
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 14 }}>
           <div style={{ position: "relative", padding: "26px 30px", background: "linear-gradient(135deg, oklch(0.18 0.06 82), oklch(0.10 0.02 82))", border: "1px solid var(--gold)", borderRadius: 6, overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
-            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.3em", color: "var(--gold-hi)", marginBottom: 8 }}>MEGA POOL · LAST-BUYER FOMO</div>
-            <div className="led" style={{ fontSize: 80, color: "var(--gold-hi)", lineHeight: 0.9, textShadow: "var(--glow-gold)" }}>${phase.mega.pool.toLocaleString()}</div>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.3em", color: "var(--gold-hi)", marginBottom: 8 }}>MEGA FOMO · DEADLINE COUNTDOWN</div>
+            <div className="led" style={{ fontSize: 64, color: "var(--gold-hi)", lineHeight: 0.9, textShadow: "var(--glow-gold)" }}>{megaHh}:{megaMm}:{megaSs}</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 10 }}>
-              <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>last buy {phase.mega.lastBuyer.addr.split(" · ")[0]}</div>
-              <Countdown hh={phase.mega.deadline.hh} mm={phase.mega.deadline.mm} ss={phase.mega.deadline.ss} state="warning" label="DEADLINE" />
+              <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>any buy extends · cap +24h</div>
+              <Countdown hh={megaHh} mm={megaMm} ss={megaSs} state={fomoLeft < 600 ? "critical" : fomoLeft < 3600 ? "warning" : "calm"} label="DEADLINE" />
             </div>
           </div>
-          <StatCard label="CARDS MINTED" value={`${PHASE_STATE.cardsMinted.toLocaleString()} / 10K`} meta="Phase A · 25% sell tax" tone="blood" />
-          <StatCard label="BUFFER LEFT" value={`${(phase.buffer.remaining / 1e9).toFixed(2)}B`} meta={`≈ ${(phase.buffer.flipsRemaining / 1000).toFixed(0)}k flips left`} tone="gold" />
-          <StatCard label="HOURLY POOL" value={`$${phase.hourly.pool.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} meta={`draw in ${phase.hourly.drawIn.mm}:${phase.hourly.drawIn.ss}`} tone="jade" />
+          <StatCard label="CARDS MINTED" value={`${cardsMinted.toLocaleString()} / 10K`} meta="Phase A · 25% sell tax" tone="blood" />
+          <StatCard label="BUFFER LEFT" value={`${(bufferRemaining / 1e9).toFixed(2)}B`} meta={`≈ ${(flipsRemaining / 1000).toFixed(0)}k flips left`} tone="gold" />
+          <StatCard label="FLIPS · LIFETIME" value={(stats?.cardsFlipped ?? 0).toLocaleString()} meta={`${stats?.mythicCount ?? 0} mythics`} tone="jade" />
         </div>
       </section>
 
@@ -149,22 +190,26 @@ export default function LandingV1Page() {
           </Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          {[MOCK_CARDS[1]!, MOCK_CARDS[0]!, MOCK_CARDS[3]!, MOCK_CARDS[7]!].map((c, i) => {
-            const payouts = ["2.40M", "287.5K", "92.1K", "54.0K"];
-            const labels = ["1m ago · cz.eth", "3s · you", "8m ago · vitalik.eth", "12m ago · 0x9f3a…ce21"];
+          {recentForGrid.length === 0 && (
+            <div style={{ gridColumn: "1 / -1", padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 11, letterSpacing: "0.15em", border: "1px dashed var(--ink-400)", borderRadius: 6 }}>
+              NO FLIPS YET — BE THE FIRST
+            </div>
+          )}
+          {recentForGrid.map((f) => {
+            const card = flipToCard(f);
+            const payoutCaste = Number(BigInt(f.payout) / ONE_E18);
+            const ago = fmtAgo(BigInt(f.blockTime), nowSec);
             return (
-              <div key={i} style={{ padding: 14, border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", display: "flex", gap: 14, alignItems: "center" }}>
-                {/* CasteCard's inner banners + stamps use fixed pixel sizes designed for ~260×380,
-                    so for thumbnails we render at native size and CSS-scale the whole thing down. */}
+              <div key={f.tokenId} style={{ padding: 14, border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", display: "flex", gap: 14, alignItems: "center" }}>
                 <div style={{ width: 88, height: 126, position: "relative", flexShrink: 0 }}>
                   <div style={{ position: "absolute", top: 0, left: 0, transform: "scale(0.338)", transformOrigin: "top left" }}>
-                    <CasteCard card={c} w={260} h={372} />
+                    <CasteCard card={card} w={260} h={372} />
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>FLIP PAYOUT</div>
-                  <div className="led" style={{ fontSize: 26, color: "var(--gold-hi)", lineHeight: 1, textShadow: "var(--glow-gold)" }}>+{payouts[i]}</div>
-                  <div className="mono" style={{ fontSize: 10, color: "var(--bone-dim)", marginTop: 4, letterSpacing: "0.05em" }}>$CASTE · {labels[i]}</div>
+                  <div className="led" style={{ fontSize: 26, color: "var(--gold-hi)", lineHeight: 1, textShadow: "var(--glow-gold)" }}>+{fmtPayout(payoutCaste)}</div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--bone-dim)", marginTop: 4, letterSpacing: "0.05em" }}>$CASTE · {ago} ago · {shortAddr(f.owner)}</div>
                 </div>
               </div>
             );

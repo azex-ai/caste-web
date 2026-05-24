@@ -64,7 +64,14 @@ export function Ticker({ items }: { items: TickerItem[] }) {
   );
 }
 
+function shortAddr(a?: string): string {
+  if (!a || a.length < 12) return "—";
+  return `${a.slice(0, 6)}…${a.slice(-5)}`;
+}
+
 export function Footer() {
+  const hook = shortAddr(process.env.NEXT_PUBLIC_CASTE_HOOK_ADDRESS);
+  const token = shortAddr(process.env.NEXT_PUBLIC_CASTE_TOKEN_ADDRESS);
   return (
     <footer
       style={{
@@ -100,7 +107,7 @@ export function Footer() {
         <br />
         Not financial advice · DYOR · code is law
         <br />
-        <span style={{ color: "var(--ink-500)" }}>hook 0x6666…CA57e · token 0x6666…6605e</span>
+        <span style={{ color: "var(--ink-500)" }}>hook {hook} · token {token}</span>
       </div>
     </footer>
   );

@@ -1,20 +1,61 @@
+"use client";
+
+import { useAccount, useBlockNumber } from "wagmi";
+
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { SealedCard } from "@/components/caste/sealed-card";
 import { CasteCard } from "@/components/caste/caste-card";
-import { SEALED_CARDS, FLIPPED_CARDS, PHASE_STATE } from "@/lib/caste/mock";
+import { useStats, useUserCards } from "@/lib/caste/hooks";
+import type { CardData } from "@/lib/caste/types";
+import type { CardRow } from "@/lib/caste/response-types";
 
-export const dynamic = "force-static";
+const ONE_E18 = 10n ** 18n;
+const FLIP_DELAY_BLOCKS = 2;
 
 function fmtCaste(n: number) {
   return n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : Math.round(n).toLocaleString();
 }
 
+function fmtAgo(secAgo: number): string {
+  if (secAgo < 60) return `${Math.max(secAgo, 0)}s`;
+  if (secAgo < 3600) return `${Math.floor(secAgo / 60)}m`;
+  if (secAgo < 86400) return `${Math.floor(secAgo / 3600)}h`;
+  return `${Math.floor(secAgo / 86400)}d`;
+}
+
+function cardRowToCard(row: CardRow): CardData {
+  return {
+    id: Number(row.tokenId),
+    tier: row.tier ?? 0,
+    variant: row.variant ?? 0,
+    sig: row.signature ?? 0,
+    traits: [row.trait0 ?? 0, row.trait1 ?? 1, row.trait2 ?? 2],
+    swaps: 0,
+    jackpots: 0,
+  };
+}
+
 export default function MyCardsPage() {
-  const flippable = SEALED_CARDS.filter((c) => c.canFlip).length;
+  const { address } = useAccount();
+  const { data: stats } = useStats();
+  const { data: cards = [] } = useUserCards(address);
+  const { data: currentBlock } = useBlockNumber({ watch: true });
+
+  const sealed = cards.filter((c) => !c.flipped);
+  const flipped = cards.filter((c) => c.flipped);
+  const flippable = currentBlock
+    ? sealed.filter((c) => currentBlock > BigInt(c.commitBlock) + BigInt(FLIP_DELAY_BLOCKS)).length
+    : 0;
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
+  const bufferStart = stats ? Number(BigInt(stats.bufferStart) / ONE_E18) : 0;
+  const estFlipsLeft = stats ? Number(BigInt(stats.bufferRemaining) / (13_900n * ONE_E18)) : 0;
+
   const tickerItems = [
-    { tag: "▸ YOU",    text: `${SEALED_CARDS.length} sealed · ${FLIPPED_CARDS.length} flipped · highest tier VC MYTHIC`, color: "var(--acid)" },
-    { tag: "▸ BUFFER", text: `${(PHASE_STATE.bufferLeft / 1e9).toFixed(2)}B / ${(PHASE_STATE.bufferTotal / 1e9).toFixed(1)}B CASTE in reserve · ~${(PHASE_STATE.estFlipsLeft / 1000).toFixed(0)}k flips left`, color: "var(--gold-hi)" },
-    { tag: "▸ FLIP",   text: "Flip is instant, gas ~120k · payout from buffer transfers same tx", color: "var(--bone-dim)" },
+    { tag: "▸ YOU",    text: address ? `${sealed.length} sealed · ${flipped.length} flipped · ${flippable} ready to flip` : "connect wallet", color: "var(--acid)" },
+    { tag: "▸ BUFFER", text: `${(bufferRemaining / 1e9).toFixed(2)}B / ${(bufferStart / 1e9).toFixed(1)}B CASTE · ~${(estFlipsLeft / 1000).toFixed(0)}k flips left`, color: "var(--gold-hi)" },
+    { tag: "▸ FLIP",   text: "Flip is instant, gas ~120k · payout transfers same tx", color: "var(--bone-dim)" },
   ];
 
   return (
@@ -29,52 +70,39 @@ export default function MyCardsPage() {
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
             <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>My Cards.</span>
             <span className="display" style={{ fontSize: 28, color: "var(--blood-hi)" }}>
-              / {SEALED_CARDS.length} UNREVEALED
+              / {sealed.length} UNREVEALED
             </span>
           </h1>
           <p style={{ fontSize: 14, color: "var(--ink-700)", maxWidth: 720, marginTop: 12, lineHeight: 1.65 }}>
             Every buy mints sealed cards — face-down lottery tickets with no attributes until you flip them.
-            <span style={{ color: "var(--bone-dim)" }}> Flip individually for the cinema moment, or batch them all with </span>
-            <strong style={{ color: "var(--acid)" }}>Flip All</strong>
-            <span style={{ color: "var(--bone-dim)" }}> to save gas.</span>
+            <span style={{ color: "var(--bone-dim)" }}> Flip individually for the cinema moment, or batch.</span>
           </p>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em" }}>BATCH ACTION</div>
           <button
+            disabled={!address || flippable === 0}
             style={{
               padding: "18px 28px",
-              background: "var(--acid)",
-              color: "var(--ink-000)",
+              background: flippable > 0 ? "var(--acid)" : "var(--ink-300)",
+              color: flippable > 0 ? "var(--ink-000)" : "var(--ink-600)",
               fontFamily: "var(--f-display)",
               fontSize: 16,
               letterSpacing: "0.18em",
               border: "none",
               borderRadius: 4,
-              boxShadow: "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)",
+              boxShadow: flippable > 0 ? "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)" : "none",
               display: "flex",
               alignItems: "center",
               gap: 10,
-              cursor: "pointer",
+              cursor: flippable > 0 ? "pointer" : "not-allowed",
             }}
           >
-            ▸ FLIP ALL {flippable} CARDS
+            ▸ FLIP {flippable} CARDS
           </button>
           <span className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            est. gas ~480k · single tx
-          </span>
-        </div>
-      </section>
-
-      <section style={{ padding: "12px 60px 0" }}>
-        <div style={{ display: "flex", borderBottom: "1px solid var(--ink-400)", gap: 4 }}>
-          <Tab label={`SEALED · ${SEALED_CARDS.length}`} active color="var(--blood-hi)" />
-          <Tab label={`FLIPPED · ${FLIPPED_CARDS.length}`} color="var(--bone-dim)" />
-          <Tab label={`ALL · ${SEALED_CARDS.length + FLIPPED_CARDS.length}`} color="var(--ink-700)" />
-          <div style={{ flex: 1 }} />
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", padding: "10px 4px" }}>
-            sort: newest first ▼ · view: grid ▦
+            {flippable > 0 ? `est. gas ~${flippable * 120}k · multi-call` : "no flippable cards yet"}
           </span>
         </div>
       </section>
@@ -85,27 +113,37 @@ export default function MyCardsPage() {
             Awaiting flip
           </span>
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            · FACE-DOWN, ATTRIBUTES UNKNOWN UNTIL YOU REVEAL
+            · FACE-DOWN · 2 BLOCK COMMIT-REVEAL LOCK
           </span>
           <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            {SEALED_CARDS.length} cards · 2 blk delay
+            {sealed.length} sealed · {flippable} can flip now
           </span>
         </div>
 
+        {!address && <EmptyState text="CONNECT WALLET TO VIEW YOUR CARDS" />}
+        {address && sealed.length === 0 && <EmptyState text="NO SEALED CARDS — BUY ON SWAP TO MINT" />}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, justifyItems: "stretch" }}>
-          {SEALED_CARDS.map((c) => (
-            <SealedCard
-              key={c.tokenId}
-              tokenId={c.tokenId}
-              commitBlock={c.commitBlock}
-              buyUnits={c.buyUnits}
-              bought={c.bought}
-              canFlip={c.canFlip}
-              w={280}
-              h={400}
-            />
-          ))}
+          {sealed.map((c) => {
+            const buyAgo = fmtAgo(nowSec - Number(c.mintTime));
+            const blocksLeft = currentBlock
+              ? Math.max(0, Number(BigInt(c.commitBlock) + BigInt(FLIP_DELAY_BLOCKS) - currentBlock))
+              : 0;
+            const canFlip = blocksLeft === 0;
+            return (
+              <SealedCard
+                key={c.tokenId}
+                tokenId={Number(c.tokenId)}
+                commitBlock={Number(c.commitBlock)}
+                buyUnits={1}
+                bought={`${buyAgo} ago`}
+                canFlip={canFlip}
+                w={280}
+                h={400}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -117,54 +155,30 @@ export default function MyCardsPage() {
           </span>
           <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            {FLIPPED_CARDS.length} cards · highest tier locked in
+            {flipped.length} cards
           </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, justifyItems: "center" }}>
-          {FLIPPED_CARDS.map((c) => (
-            <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-              <CasteCard card={c} w={280} h={400} />
-              <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.15em" }}>
-                FLIP PAYOUT · +{fmtCaste(c.payout)} CASTE
-              </div>
-              <div className="mono" style={{ fontSize: 8, color: "var(--ink-700)", letterSpacing: "0.1em" }}>
-                flipped {c.flippedAgo} ago · mult {(c.multBp / 1e4).toFixed(1)}×
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+        {address && flipped.length === 0 && <EmptyState text="NO FLIPPED CARDS YET" />}
 
-      <section style={{ padding: "12px 60px 60px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-          <div style={{ padding: 20, border: "1px dashed var(--ink-400)", borderRadius: 6, background: "var(--ink-200)" }}>
-            <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em", marginBottom: 8 }}>
-              SECONDARY MARKET
-            </div>
-            <div className="display" style={{ fontSize: 16, color: "var(--bone)" }}>
-              Sealed cards trade on OpenSea/Blur as{" "}
-              <span style={{ color: "var(--blood-hi)" }}>&quot;Sealed Caste Card #N&quot;</span>
-            </div>
-            <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 8, lineHeight: 1.7 }}>
-              ▸ Neither seller nor buyer can simulate what&apos;s inside — execution-time RNG.<br />
-              ▸ Whoever owns the card at flip time gets the payout. Sell before flipping = forfeit the bonus.<br />
-              ▸ Flipped cards show full metadata; sealed cards show a uniform cover image.
-            </div>
-          </div>
-          <div style={{ padding: 20, border: "1px dashed var(--ink-400)", borderRadius: 6, background: "var(--ink-200)" }}>
-            <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em", marginBottom: 8 }}>
-              WHY DEFER REVEAL?
-            </div>
-            <div className="display" style={{ fontSize: 16, color: "var(--bone)" }}>
-              So the cinema moment is yours — and the secondary market is pure speculation.
-            </div>
-            <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 8, lineHeight: 1.7 }}>
-              ▸ Buy = quiet ticket purchase + balance increase. No drama.<br />
-              ▸ Flip = the open-the-pack ceremony. Big animation, big number.<br />
-              ▸ Replicates Pokemon TCG / Hearthstone pack rip in DeFi UX.
-            </div>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28, justifyItems: "center" }}>
+          {flipped.map((c) => {
+            const card = cardRowToCard(c);
+            const payoutCaste = c.payout ? Number(BigInt(c.payout) / ONE_E18) : 0;
+            const multX = (c.multiplierBp ?? 10000) / 10000;
+            const ago = c.flipTime ? fmtAgo(nowSec - Number(c.flipTime)) : "—";
+            return (
+              <div key={c.tokenId} style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                <CasteCard card={card} w={280} h={400} />
+                <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.15em" }}>
+                  FLIP PAYOUT · +{fmtCaste(payoutCaste)} CASTE
+                </div>
+                <div className="mono" style={{ fontSize: 8, color: "var(--ink-700)", letterSpacing: "0.1em" }}>
+                  flipped {ago} ago · mult {multX.toFixed(1)}×
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -173,21 +187,10 @@ export default function MyCardsPage() {
   );
 }
 
-function Tab({ label, active = false, color = "var(--bone-dim)" }: { label: string; active?: boolean; color?: string }) {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div
-      style={{
-        padding: "10px 18px",
-        fontFamily: "var(--f-display)",
-        fontSize: 13,
-        letterSpacing: "0.12em",
-        color: active ? color : "var(--ink-700)",
-        borderBottom: active ? `2px solid ${color}` : "2px solid transparent",
-        marginBottom: -1,
-        cursor: "pointer",
-      }}
-    >
-      {label}
+    <div style={{ padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 11, letterSpacing: "0.15em", border: "1px dashed var(--ink-400)", borderRadius: 6, marginBottom: 18 }}>
+      {text}
     </div>
   );
 }

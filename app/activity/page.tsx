@@ -1,28 +1,136 @@
+"use client";
+
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { StatCard } from "@/components/caste/stat-card";
-import { TIERS, ACTIVITY_V1, POOLS_V1 } from "@/lib/caste/mock";
-import type { ActivityEvent } from "@/lib/caste/mock";
-
-export const dynamic = "force-static";
+import { TIERS } from "@/lib/caste/mock";
+import {
+  useHourlyEpochs,
+  useMegaSettlements,
+  useRecentFlips,
+  useSellTaxEvents,
+  useStats,
+} from "@/lib/caste/hooks";
+import type {
+  FlipRow,
+  HourlyEpochRow,
+  MegaSettlementRow,
+  SellTaxRow,
+} from "@/lib/caste/response-types";
 
 type Meta = { label: string; color: string };
 const EVENT_META: Record<string, Meta> = {
   FLIP:             { label: "FLIP · WIN",      color: "var(--gold-hi)" },
   FLIP_BUST:        { label: "FLIP · COMMON",   color: "var(--bone-dim)" },
-  BUY:              { label: "BUY · SEALED",    color: "var(--acid)" },
   PHASE_A_SELL:     { label: "SELL · PHASE A",  color: "var(--blood-hi)" },
+  PHASE_B_SELL:     { label: "SELL · PHASE B",  color: "var(--blood-hi)" },
   SETTLE_HOURLY:    { label: "SETTLE · HOURLY", color: "var(--jade)" },
   SETTLE_MEGA:      { label: "SETTLE · MEGA",   color: "var(--gold-hi)" },
-  BUFFER_DEPLETED:  { label: "BUFFER · CAPPED", color: "var(--blood-hi)" },
 };
 
+type TimelineEvent =
+  | { kind: "FLIP" | "FLIP_BUST"; ts: bigint; addr: string; tier: number; variant: number; payout: bigint; txHash: string }
+  | { kind: "PHASE_A_SELL" | "PHASE_B_SELL"; ts: bigint; addr: string; usdcOut: bigint; fee: bigint; txHash: string }
+  | { kind: "SETTLE_HOURLY"; ts: bigint; addr: string; epoch: string; prize: bigint }
+  | { kind: "SETTLE_MEGA"; ts: bigint; addr: string; prize: bigint; txHash: string };
+
+function shortAddr(a?: string | null): string {
+  if (!a || a.length < 12) return a ?? "—";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function fmtAgo(blockTime: bigint, nowSec: number): string {
+  const diff = nowSec - Number(blockTime);
+  if (diff < 60) return `${Math.max(diff, 0)}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+function fmtBig(amount: bigint, scale: bigint): string {
+  const n = Number(amount / scale);
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function buildTimeline(
+  flips: FlipRow[],
+  sellTax: SellTaxRow[],
+  hourly: HourlyEpochRow[],
+  mega: MegaSettlementRow[],
+): TimelineEvent[] {
+  const out: TimelineEvent[] = [];
+  for (const f of flips) {
+    const bust = f.variant === 0 && f.tier === 0;
+    out.push({
+      kind: bust ? "FLIP_BUST" : "FLIP",
+      ts: BigInt(f.blockTime),
+      addr: f.owner,
+      tier: f.tier,
+      variant: f.variant,
+      payout: BigInt(f.payout),
+      txHash: f.txHash,
+    });
+  }
+  for (const s of sellTax) {
+    out.push({
+      kind: s.phaseA ? "PHASE_A_SELL" : "PHASE_B_SELL",
+      ts: BigInt(s.blockTime),
+      addr: s.seller,
+      usdcOut: BigInt(s.grossUsdcOut),
+      fee: BigInt(s.fee),
+      txHash: s.txHash,
+    });
+  }
+  for (const h of hourly) {
+    if (h.status !== "settled" || !h.winner) continue;
+    out.push({
+      kind: "SETTLE_HOURLY",
+      ts: BigInt(h.settledTime),
+      addr: h.winner,
+      epoch: h.epochId,
+      prize: BigInt(h.prize),
+    });
+  }
+  for (const m of mega) {
+    out.push({
+      kind: "SETTLE_MEGA",
+      ts: BigInt(m.blockTime),
+      addr: m.winner,
+      prize: BigInt(m.prize),
+      txHash: m.txHash,
+    });
+  }
+  out.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  return out;
+}
+
+const ONE_E18 = 10n ** 18n;
+const ONE_E6 = 10n ** 6n;
+
 export default function ActivityV1Page() {
+  const { data: stats } = useStats();
+  const { data: flips = [] } = useRecentFlips(100);
+  const { data: sellTax = [] } = useSellTaxEvents(100);
+  const { data: hourly = [] } = useHourlyEpochs(50);
+  const { data: mega = [] } = useMegaSettlements();
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const timeline = buildTimeline(flips, sellTax, hourly, mega);
+
+  const counts = {
+    flips: flips.length,
+    sells: sellTax.length,
+    settles: hourly.filter((h) => h.status === "settled").length + mega.length,
+    mythics: stats?.mythicCount ?? 0,
+    bufferShortfalls: stats && BigInt(stats.bufferShortfall) > 0n ? 1 : 0,
+  };
+
   const tickerItems = [
-    { tag: "▸ LIVE",   text: "events updating every block · last refresh 1s ago", color: "var(--acid)" },
-    { tag: "▸ FILTER", text: "showing 11/2,412 events · 24h window · all addresses", color: "var(--bone-dim)" },
-    { tag: "▸ BUFFER", text: "1 BufferDepleted event in last 24h · ~$18.9k CASTE shortfall · graceful cap engaged", color: "var(--blood-hi)" },
+    { tag: "▸ LIVE",   text: `events refresh every 5s · ${timeline.length} in window`, color: "var(--acid)" },
+    { tag: "▸ FLIPS",  text: `${counts.flips} flips · ${counts.mythics} mythics`, color: "var(--gold-hi)" },
+    { tag: "▸ BUFFER", text: stats ? `${counts.bufferShortfalls} BufferDepleted${counts.bufferShortfalls === 1 ? "" : "s"} · shortfall ${stats.bufferShortfall}` : "—", color: "var(--blood-hi)" },
   ];
-  const counts = { buys: 412, flips: 183, sells: 89, settles: 23 };
 
   return (
     <div>
@@ -35,81 +143,32 @@ export default function ActivityV1Page() {
             <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>The Feed.</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 820, marginTop: 12, lineHeight: 1.65 }}>
-            Every on-chain event the hook + card emit, in time order. V1 trades the buy-time multiplier roll for two punchier events:{" "}
-            <strong style={{ color: "var(--gold-hi)" }}>FLIP</strong> (the cinema reveal) and <strong style={{ color: "var(--blood-hi)" }}>PHASE_A_SELL</strong> (the 25% tax burn).
+            Every on-chain event the hook + card emit, in time order.{" "}
+            <strong style={{ color: "var(--gold-hi)" }}>FLIP</strong> (the cinema reveal),{" "}
+            <strong style={{ color: "var(--blood-hi)" }}>PHASE_A_SELL</strong> (25% tax), and lottery settles.
           </p>
-        </div>
-        <div className="chip">
-          <span className="breathe">●</span> STREAMING · BLOCK {POOLS_V1.block.toLocaleString()}
         </div>
       </section>
 
       <section style={{ padding: "12px 60px 28px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14 }}>
-          <StatCard label="24H BUYS"     value={counts.buys.toLocaleString()}  meta={`avg 4.2 sealed / buy · ${counts.buys * 4} sealed minted`} tone="acid" />
-          <StatCard label="24H FLIPS"    value={counts.flips.toLocaleString()} meta="183 cinema moments" tone="gold" />
-          <StatCard label="24H SELLS"    value={counts.sells.toLocaleString()} meta="all Phase A · 25% tax" tone="blood" />
-          <StatCard label="SETTLES"      value={counts.settles}                meta="22 hourly · 1 mega" tone="jade" />
-          <StatCard label="BUFFER ALERT" value="1"                              meta="BufferDepleted event · last 24h" tone="orchid" />
-        </div>
-      </section>
-
-      <section style={{ padding: "0 60px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", border: "1px solid var(--ink-400)", borderRadius: 4, background: "var(--ink-200)" }}>
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em" }}>FILTER ▸</span>
-          {["ALL", "FLIP", "BUY", "SELL", "SETTLE", "BUFFER"].map((f, i) => (
-            <span
-              key={f}
-              style={{
-                padding: "5px 12px",
-                fontFamily: "var(--f-mono)",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                borderRadius: 2,
-                cursor: "pointer",
-                background: i === 0 ? "var(--acid)" : "transparent",
-                color: i === 0 ? "var(--ink-000)" : "var(--bone-dim)",
-                border: i === 0 ? "none" : "1px solid var(--ink-400)",
-              }}
-            >
-              {f}
-            </span>
-          ))}
-          <div style={{ flex: 1 }} />
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em" }}>
-            window: 24h · sort: newest ↓ · my events only ☐
-          </span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
+          <StatCard label="FLIPS"    value={counts.flips.toLocaleString()}   meta="cinema moments" tone="gold" />
+          <StatCard label="SELLS"    value={counts.sells.toLocaleString()}   meta="sell tax events" tone="blood" />
+          <StatCard label="SETTLES"  value={counts.settles.toLocaleString()} meta="hourly + mega" tone="jade" />
+          <StatCard label="MYTHICS"  value={counts.mythics.toLocaleString()} meta="lifetime mythic flips" tone="orchid" />
         </div>
       </section>
 
       <section style={{ padding: "0 60px 48px" }}>
         <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, overflow: "hidden", background: "var(--ink-200)" }}>
-          {ACTIVITY_V1.map((e, i) => (
-            <EventRow key={i} event={e} last={i === ACTIVITY_V1.length - 1} />
+          {timeline.length === 0 && (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 11, letterSpacing: "0.15em" }}>
+              NO EVENTS YET · WAITING FOR CHAIN ACTIVITY
+            </div>
+          )}
+          {timeline.map((e, i) => (
+            <EventRow key={`${e.kind}-${i}`} event={e} last={i === timeline.length - 1} nowSec={nowSec} />
           ))}
-        </div>
-
-        <div style={{ marginTop: 14, padding: 14, border: "1px dashed var(--ink-400)", borderRadius: 6, background: "var(--ink-200)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)", letterSpacing: "0.05em" }}>
-              ▸ Showing latest {ACTIVITY_V1.length} events · scroll for more
-            </span>
-            <button
-              style={{
-                padding: "6px 14px",
-                background: "transparent",
-                color: "var(--acid)",
-                border: "1px solid var(--acid-lo)",
-                fontFamily: "var(--f-mono)",
-                fontSize: 10,
-                letterSpacing: "0.15em",
-                borderRadius: 2,
-                cursor: "pointer",
-              }}
-            >
-              LOAD OLDER →
-            </button>
-          </div>
         </div>
       </section>
 
@@ -118,21 +177,20 @@ export default function ActivityV1Page() {
   );
 }
 
-function EventRow({ event: e, last }: { event: ActivityEvent; last: boolean }) {
+function EventRow({ event: e, last, nowSec }: { event: TimelineEvent; last: boolean; nowSec: number }) {
   const meta = EVENT_META[e.kind]!;
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "70px 130px 1fr auto",
+        gridTemplateColumns: "70px 150px 1fr auto",
         gap: 14,
         padding: "14px 18px",
         borderBottom: last ? "none" : "1px solid var(--ink-300)",
         alignItems: "center",
-        background: e.isYou ? "oklch(0.30 0.18 115 / 0.10)" : "transparent",
       }}
     >
-      <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.1em" }}>{e.ago}</span>
+      <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.1em" }}>{fmtAgo(e.ts, nowSec)}</span>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ width: 6, height: 6, borderRadius: 999, background: meta.color, boxShadow: `0 0 6px ${meta.color}` }} />
@@ -153,70 +211,52 @@ function EventRow({ event: e, last }: { event: ActivityEvent; last: boolean }) {
   );
 }
 
-function addrPill(e: ActivityEvent) {
+function addrPill(addr: string) {
   return (
-    <span className="mono" style={{ fontSize: 12, color: e.isYou ? "var(--acid)" : "var(--bone)" }}>
-      {e.addr}
-      {e.isYou && (
-        <span className="mono" style={{ marginLeft: 6, fontSize: 7, padding: "1px 4px", background: "var(--acid)", color: "var(--ink-000)", letterSpacing: "0.1em", borderRadius: 2 }}>
-          YOU
-        </span>
-      )}
+    <span className="mono" style={{ fontSize: 12, color: "var(--bone)" }}>
+      {shortAddr(addr)}
     </span>
   );
 }
 
-function renderEventBody(e: ActivityEvent): React.ReactNode {
+function renderEventBody(e: TimelineEvent): React.ReactNode {
   switch (e.kind) {
     case "FLIP":
     case "FLIP_BUST": {
-      const tier = TIERS[e.tier]!;
+      const tier = TIERS[e.tier];
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {addrPill(e)}
+          {addrPill(e.addr)}
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>flipped →</span>
-          <span style={{ fontSize: 14 }}>{tier.emoji}</span>
-          <span className="display" style={{ fontSize: 12, color: tier.color, letterSpacing: "0.05em" }}>
-            {e.variant === 2 ? "MYTHIC" : e.variant === 1 ? "RARE" : "COMMON"} {tier.cn.toUpperCase()}
+          <span style={{ fontSize: 14 }}>{tier?.emoji ?? "?"}</span>
+          <span className="display" style={{ fontSize: 12, color: tier?.color ?? "var(--bone)", letterSpacing: "0.05em" }}>
+            {e.variant === 2 ? "MYTHIC" : e.variant === 1 ? "RARE" : "COMMON"} {(tier?.cn ?? "?").toUpperCase()}
           </span>
         </div>
       );
     }
-    case "BUY":
-      return (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {addrPill(e)}
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>bought</span>
-          <span className="led" style={{ fontSize: 14, color: "var(--bone)" }}>{e.units}u</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>· minted</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--blood-hi)" }}>{e.sealed} sealed</span>
-        </div>
-      );
     case "PHASE_A_SELL":
+    case "PHASE_B_SELL":
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {addrPill(e)}
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>sold</span>
-          <span className="led" style={{ fontSize: 14, color: "var(--bone)" }}>{(e.caste / 1000).toFixed(1)}K</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>$CASTE · received</span>
-          <span className="led" style={{ fontSize: 14, color: "var(--jade)" }}>${e.usdcOut.toLocaleString()}</span>
+          {addrPill(e.addr)}
+          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>sold · received</span>
+          <span className="led" style={{ fontSize: 14, color: "var(--jade)" }}>${fmtBig(e.usdcOut, ONE_E6)}</span>
         </div>
       );
     case "SETTLE_HOURLY":
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.15em" }}>EPOCH {e.epoch.toLocaleString()} →</span>
-          {addrPill(e)}
+          <span className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.15em" }}>EPOCH {e.epoch} →</span>
+          {addrPill(e.addr)}
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>paid lastBuyer</span>
         </div>
       );
-    case "BUFFER_DEPLETED":
+    case "SETTLE_MEGA":
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {addrPill(e)}
-          <span className="mono" style={{ fontSize: 10, color: "var(--blood-hi)", letterSpacing: "0.15em" }}>
-            flip capped · requested {e.requested.toLocaleString()}, paid {e.paid.toLocaleString()}
-          </span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--gold-hi)", letterSpacing: "0.15em" }}>MEGA · FOMO →</span>
+          {addrPill(e.addr)}
         </div>
       );
     default:
@@ -224,44 +264,32 @@ function renderEventBody(e: ActivityEvent): React.ReactNode {
   }
 }
 
-function renderEventValue(e: ActivityEvent, meta: Meta): React.ReactNode {
+function renderEventValue(e: TimelineEvent, meta: Meta): React.ReactNode {
   switch (e.kind) {
     case "FLIP":
     case "FLIP_BUST":
       return (
         <div style={{ textAlign: "right" }}>
           <div className="led" style={{ fontSize: 18, color: meta.color, lineHeight: 1 }}>
-            +{e.payout >= 1e6 ? `${(e.payout / 1e6).toFixed(2)}M` : e.payout >= 1e3 ? `${(e.payout / 1e3).toFixed(0)}K` : e.payout}
+            +{fmtBig(e.payout, ONE_E18)}
           </div>
           <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>$CASTE · buffer</div>
         </div>
       );
-    case "BUY":
-      return (
-        <div style={{ textAlign: "right" }}>
-          <div className="led" style={{ fontSize: 18, color: "var(--acid)", lineHeight: 1 }}>${(e.units * 6.66666).toFixed(2)}</div>
-          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>USDC in</div>
-        </div>
-      );
     case "PHASE_A_SELL":
+    case "PHASE_B_SELL":
       return (
         <div style={{ textAlign: "right" }}>
-          <div className="led" style={{ fontSize: 18, color: meta.color, lineHeight: 1 }}>−${e.tax.toLocaleString()}</div>
-          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>25% tax → pools</div>
+          <div className="led" style={{ fontSize: 18, color: meta.color, lineHeight: 1 }}>−${fmtBig(e.fee, ONE_E6)}</div>
+          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>tax → pools</div>
         </div>
       );
     case "SETTLE_HOURLY":
+    case "SETTLE_MEGA":
       return (
         <div style={{ textAlign: "right" }}>
-          <div className="led" style={{ fontSize: 18, color: meta.color, lineHeight: 1 }}>+${e.prize.toLocaleString()}</div>
-          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>USDC · hourly</div>
-        </div>
-      );
-    case "BUFFER_DEPLETED":
-      return (
-        <div style={{ textAlign: "right" }}>
-          <div className="led" style={{ fontSize: 16, color: "var(--blood-hi)" }}>−{e.shortfall.toLocaleString()}</div>
-          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>shortfall · CASTE</div>
+          <div className="led" style={{ fontSize: 18, color: meta.color, lineHeight: 1 }}>+${fmtBig(e.prize, ONE_E6)}</div>
+          <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.1em" }}>USDC · {e.kind === "SETTLE_HOURLY" ? "hourly" : "mega"}</div>
         </div>
       );
     default:

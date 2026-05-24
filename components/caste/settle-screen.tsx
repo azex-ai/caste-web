@@ -1,15 +1,72 @@
-import { SETTLE_MOMENTS, POOLS_V1 } from "@/lib/caste/mock";
+"use client";
+
+import { useHourlyEpochs, useMegaSettlements, useStats } from "@/lib/caste/hooks";
+import { useSettleHourly, useSettleMega } from "@/lib/caste/writes";
+
+const ONE_E6 = 10n ** 6n;
+
+function shortAddr(a?: string | null): string {
+  if (!a || a.length < 12) return a ?? "—";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function bigToNum(s: string): number {
+  return Number(BigInt(s) / ONE_E6);
+}
 
 export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) {
   const isHourly = kind === "hourly";
-  const m = isHourly ? SETTLE_MOMENTS.hourly : SETTLE_MOMENTS.mega;
+  const { data: hourly = [] } = useHourlyEpochs(20);
+  const { data: mega = [] } = useMegaSettlements();
+  const { data: stats } = useStats();
+  const settleHourly = useSettleHourly();
+  const settleMega = useSettleMega();
+  // The most-recent completed hourly epoch ID is (now/3600) - 1; we offer to settle it.
+  const settleableEpoch = Math.floor(Date.now() / 1000 / 3600) - 1;
+  const canSettleMega = (stats?.fomoSecondsLeft ?? 1) === 0;
+
+  const latestHourly = hourly.find((h) => h.status === "settled");
+  const latestMega = mega[0];
+
   const tone = isHourly ? "var(--jade)" : "var(--gold-hi)";
   const toneSoft = isHourly ? "oklch(0.20 0.08 155 / 0.4)" : "oklch(0.20 0.10 82 / 0.4)";
-  const title = isHourly ? "HOURLY · SETTLED" : "MEGA POOL · SETTLED";
-  const sub = isHourly
-    ? `EPOCH ${(m as typeof SETTLE_MOMENTS.hourly).epoch.toLocaleString()}`
-    : `ROUND ${(m as typeof SETTLE_MOMENTS.mega).round.toString().padStart(2, "0")} · FOMO EXPIRED`;
-  const youWon = m.isYou;
+  const title = isHourly ? "HOURLY · LATEST SETTLE" : "MEGA POOL · LATEST SETTLE";
+
+  const winner = isHourly ? latestHourly?.winner : latestMega?.winner;
+  const prize = isHourly && latestHourly ? bigToNum(latestHourly.prize) : latestMega ? bigToNum(latestMega.prize) : 0;
+  const block = isHourly ? latestHourly?.settledBlock : latestMega?.blockNumber;
+  const epoch = latestHourly?.epochId;
+
+  const hasData = isHourly ? !!latestHourly : !!latestMega;
+
+  if (!hasData) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 1100,
+          minHeight: 720,
+          margin: "40px auto",
+          background: "var(--ink-100)",
+          border: `1px solid ${tone}`,
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 40,
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div className="display" style={{ fontSize: 36, color: tone, letterSpacing: "0.15em" }}>
+            {title}
+          </div>
+          <div className="mono" style={{ fontSize: 14, color: "var(--ink-700)", letterSpacing: "0.2em", marginTop: 18 }}>
+            NO {isHourly ? "HOURLY EPOCHS" : "MEGA ROUNDS"} SETTLED YET
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -37,28 +94,12 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
       <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.25 }} />
       <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.15 }} />
 
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          width: 1400,
-          height: 1400,
-          marginLeft: -700,
-          marginTop: -700,
-          background: `repeating-conic-gradient(from 0deg, ${tone} 0deg 2deg, transparent 2deg 12deg)`,
-          opacity: 0.1,
-          mixBlendMode: "screen",
-          pointerEvents: "none",
-        }}
-      />
-
       <div style={{ position: "absolute", top: 36, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 14 }}>
         <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: tone }}>
-          ● LIVE · BLOCK {(("settledAtBlock" in m ? m.settledAtBlock : POOLS_V1.block)).toLocaleString()}
+          ● BLOCK {block ? Number(block).toLocaleString() : "—"}
         </span>
         <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-700)" }}>
-          · {title} · {sub}
+          · {title}{epoch ? ` · EPOCH #${epoch.slice(-6)}` : ""}
         </span>
       </div>
 
@@ -69,10 +110,10 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
 
         <h1 style={{ margin: 0, lineHeight: 0.86 }}>
           <span className="display" style={{ display: "block", fontSize: 56, color: "var(--bone)", letterSpacing: "-0.01em" }}>
-            {youWon ? "YOU WON" : m.winner}
+            {shortAddr(winner)}
           </span>
           <span className="display" style={{ display: "block", fontSize: 22, color: tone, letterSpacing: "0.2em", marginTop: 4 }}>
-            {isHourly ? "THE HOURLY POOL" : "THE MEGA JACKPOT"}
+            {isHourly ? "WON THE HOURLY POOL" : "WON THE MEGA JACKPOT"}
           </span>
         </h1>
 
@@ -87,121 +128,62 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
               textShadow: `0 0 60px ${tone}, 0 0 120px ${tone}`,
             }}
           >
-            ${m.pool.toLocaleString()}
+            ${prize.toLocaleString()}
           </div>
           <div className="mono" style={{ fontSize: 12, letterSpacing: "0.35em", color: "var(--bone-dim)", marginTop: -4 }}>
             USDC · TRANSFERRED IN SAME TX
           </div>
         </div>
 
-        <div
-          style={{
-            marginTop: 20,
-            padding: "14px 24px",
-            background: "oklch(0 0 0 / 0.5)",
-            border: `1px solid ${tone}`,
-            borderRadius: 6,
-            display: "flex",
-            gap: 28,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.25em" }}>WINNER</div>
-            <div className="display" style={{ fontSize: 18, color: youWon ? "var(--acid)" : "var(--bone)" }}>{m.winner}</div>
-          </div>
-          <div style={{ width: 1, alignSelf: "stretch", background: tone, opacity: 0.5 }} />
+        <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
           {isHourly ? (
-            <>
-              <div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.25em" }}>QUALIFIED BY</div>
-                <div className="mono" style={{ fontSize: 13, color: "var(--bone-dim)" }}>
-                  last buy · {(m as typeof SETTLE_MOMENTS.hourly).units} units
-                </div>
-              </div>
-              <div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.25em" }}>NEXT EPOCH</div>
-                <div className="mono" style={{ fontSize: 13, color: "var(--bone-dim)" }}>
-                  #{(m as typeof SETTLE_MOMENTS.hourly).nextEpoch} draws in {(m as typeof SETTLE_MOMENTS.hourly).nextDrawIn.mm}:{(m as typeof SETTLE_MOMENTS.hourly).nextDrawIn.ss}
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.25em" }}>QUALIFIED BY</div>
-                <div className="mono" style={{ fontSize: 13, color: "var(--bone-dim)" }}>
-                  last buy · {(m as typeof SETTLE_MOMENTS.mega).lastBuy}
-                </div>
-              </div>
-              <div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.25em" }}>NEXT ROUND</div>
-                <div className="mono" style={{ fontSize: 13, color: "var(--bone-dim)" }}>
-                  #{(m as typeof SETTLE_MOMENTS.mega).nextRound.round} · FOMO restart {(m as typeof SETTLE_MOMENTS.mega).nextRound.fomoStart}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ marginTop: 14, display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>TX</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--cobalt)", letterSpacing: "0.1em" }}>{m.txHash} ↗</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>· ERC-6909 burn → USDC out</span>
-        </div>
-
-        <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-          {youWon ? (
-            <>
-              <button
-                style={{
-                  padding: "14px 28px",
-                  background: tone,
-                  color: "var(--ink-000)",
-                  fontFamily: "var(--f-display)",
-                  fontSize: 14,
-                  letterSpacing: "0.15em",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  boxShadow: `0 6px 0 ${toneSoft}, 0 16px 28px ${toneSoft}`,
-                }}
-              >
-                SHARE WIN ↗
-              </button>
-              <button
-                style={{
-                  padding: "14px 28px",
-                  background: "transparent",
-                  color: "var(--bone)",
-                  fontFamily: "var(--f-display)",
-                  fontSize: 14,
-                  letterSpacing: "0.15em",
-                  border: "1px solid var(--ink-500)",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-              >
-                BACK TO {isHourly ? "/CASTE" : "/POOLS"}
-              </button>
-            </>
-          ) : (
             <button
+              disabled={settleHourly.isPending}
+              onClick={() => settleHourly.mutate({ epoch: settleableEpoch })}
               style={{
                 padding: "14px 28px",
-                background: "transparent",
-                color: tone,
+                background: settleHourly.isPending ? "var(--ink-300)" : tone,
+                color: settleHourly.isPending ? "var(--ink-600)" : "var(--ink-000)",
                 fontFamily: "var(--f-display)",
                 fontSize: 14,
                 letterSpacing: "0.15em",
-                border: `1px solid ${tone}`,
+                border: "none",
                 borderRadius: 4,
-                cursor: "pointer",
+                cursor: settleHourly.isPending ? "not-allowed" : "pointer",
+                boxShadow: settleHourly.isPending ? "none" : `0 6px 0 ${toneSoft}`,
               }}
             >
-              {isHourly ? "BUY → BE NEXT LASTBUYER" : `JOIN ROUND ${(m as typeof SETTLE_MOMENTS.mega).nextRound.round}`}
+              {settleHourly.isPending ? "SETTLING…" : `▸ settleHourly(${settleableEpoch})`}
             </button>
+          ) : (
+            <button
+              disabled={!canSettleMega || settleMega.isPending}
+              onClick={() => settleMega.mutate()}
+              style={{
+                padding: "14px 28px",
+                background: !canSettleMega || settleMega.isPending ? "var(--ink-300)" : tone,
+                color: !canSettleMega || settleMega.isPending ? "var(--ink-600)" : "var(--ink-000)",
+                fontFamily: "var(--f-display)",
+                fontSize: 14,
+                letterSpacing: "0.15em",
+                border: "none",
+                borderRadius: 4,
+                cursor: !canSettleMega || settleMega.isPending ? "not-allowed" : "pointer",
+                boxShadow: !canSettleMega || settleMega.isPending ? "none" : `0 6px 0 ${toneSoft}`,
+              }}
+            >
+              {settleMega.isPending ? "SETTLING…" : canSettleMega ? "▸ settleMega()" : "FOMO NOT EXPIRED"}
+            </button>
+          )}
+          {(isHourly ? settleHourly : settleMega).isError && (
+            <span className="mono" style={{ fontSize: 11, color: "var(--blood-hi)" }}>
+              ✗ {(isHourly ? settleHourly : settleMega).error?.message ?? "tx failed"}
+            </span>
+          )}
+          {(isHourly ? settleHourly : settleMega).isSuccess && (
+            <span className="mono" style={{ fontSize: 11, color: "var(--jade)" }}>
+              ✓ settled
+            </span>
           )}
         </div>
       </div>

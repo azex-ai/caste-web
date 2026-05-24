@@ -1,16 +1,39 @@
-import { Ticker, Footer } from "@/components/caste/caste-chrome";
-import { PHASE_STATE, POOLS_V1 } from "@/lib/caste/mock";
+"use client";
 
-export const dynamic = "force-static";
+import { Ticker, Footer } from "@/components/caste/caste-chrome";
+import { useStats } from "@/lib/caste/hooks";
+
+const AVG_PAYOUT_E18 = 13_900n * 10n ** 18n; // ≈ avg flip payout in CASTE wei
+
+function bigStrToCasteUnits(s: string | null | undefined): number {
+  if (!s) return 0;
+  return Number(BigInt(s) / 10n ** 18n);
+}
 
 export default function StatsV1Page() {
-  const p = POOLS_V1;
-  const bufferPct = (p.buffer.remaining / p.buffer.initial) * 100;
-  const phasePct = (PHASE_STATE.cardsMinted / PHASE_STATE.cardsCap) * 100;
+  const { data: stats } = useStats();
+
+  const cardsMinted = stats?.cardsMinted ?? 0;
+  const cardsCap = 10_000;
+  const phasePct = (cardsMinted / cardsCap) * 100;
+
+  const bufferInitial = bigStrToCasteUnits(stats?.bufferStart);
+  const bufferRemaining = bigStrToCasteUnits(stats?.bufferRemaining);
+  const bufferDrained = bigStrToCasteUnits(stats?.bufferPaid);
+  const bufferPct = bufferInitial > 0 ? (bufferRemaining / bufferInitial) * 100 : 0;
+  const flipsRemaining = stats
+    ? Number(BigInt(stats.bufferRemaining) / AVG_PAYOUT_E18)
+    : 0;
+
+  const hookAddr = process.env.NEXT_PUBLIC_CASTE_HOOK_ADDRESS ?? "";
+  const tokenAddr = process.env.NEXT_PUBLIC_CASTE_TOKEN_ADDRESS ?? "";
+  const cardAddr = process.env.NEXT_PUBLIC_CASTE_CARD_ADDRESS ?? "";
+  const shortAddr = (a: string) =>
+    a.length >= 12 ? `${a.slice(0, 6)}…${a.slice(-5)}` : a || "—";
 
   const tickerItems = [
-    { tag: "▸ CARDS",  text: `${PHASE_STATE.cardsMinted.toLocaleString()} / 10,000 minted · ${(10000 - PHASE_STATE.cardsMinted).toLocaleString()} until Phase B`, color: "var(--blood-hi)" },
-    { tag: "▸ BUFFER", text: `${(p.buffer.remaining / 1e9).toFixed(3)}B left · ${(p.buffer.drained / 1e6).toFixed(0)}M drained · ~${(p.buffer.flipsRemaining / 1000).toFixed(0)}k flips remaining`, color: "var(--orchid)" },
+    { tag: "▸ CARDS",  text: `${cardsMinted.toLocaleString()} / 10,000 minted · ${(cardsCap - cardsMinted).toLocaleString()} until Phase B`, color: "var(--blood-hi)" },
+    { tag: "▸ BUFFER", text: `${(bufferRemaining / 1e9).toFixed(3)}B left · ${(bufferDrained / 1e6).toFixed(0)}M drained · ~${(flipsRemaining / 1000).toFixed(0)}k flips remaining`, color: "var(--orchid)" },
     { tag: "▸ RNG",    text: "flip seed = keccak(blockhash, prevrandao, coinbase, gasleft, tokenId, msg.sender)", color: "var(--cobalt)" },
   ];
 
@@ -47,10 +70,10 @@ export default function StatsV1Page() {
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginTop: 4 }}>sell tax · split 16.67 hourly / 8.33 mega</div>
             </div>
             <div>
-              <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>{PHASE_STATE.cardsMinted.toLocaleString()} / 10,000</div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>{cardsMinted.toLocaleString()} / 10,000</div>
               <div className="led" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 0.9 }}>{phasePct.toFixed(1)}%</div>
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginTop: 4 }}>
-                cards minted · {(10000 - PHASE_STATE.cardsMinted).toLocaleString()} more to flip phase
+                cards minted · {(cardsCap - cardsMinted).toLocaleString()} more to flip phase
               </div>
             </div>
             <div>
@@ -98,8 +121,8 @@ export default function StatsV1Page() {
               <div style={{ position: "relative", height: 60, background: "var(--ink-300)", borderRadius: 4, overflow: "hidden", border: "1px solid var(--ink-400)" }}>
                 <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${bufferPct}%`, background: "linear-gradient(90deg, var(--orchid), oklch(0.45 0.18 320))" }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 16px" }}>
-                  <span className="led" style={{ fontSize: 26, color: "var(--bone)" }}>{(p.buffer.remaining / 1e9).toFixed(3)}B LEFT</span>
-                  <span className="led" style={{ fontSize: 22, color: "var(--orchid)" }}>{(p.buffer.drained / 1e6).toFixed(0)}M drained</span>
+                  <span className="led" style={{ fontSize: 26, color: "var(--bone)" }}>{(bufferRemaining / 1e9).toFixed(3)}B LEFT</span>
+                  <span className="led" style={{ fontSize: 22, color: "var(--orchid)" }}>{(bufferDrained / 1e6).toFixed(0)}M drained</span>
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 8, letterSpacing: "0.05em", lineHeight: 1.7 }}>
@@ -125,7 +148,7 @@ export default function StatsV1Page() {
               </div>
               <div style={{ marginTop: 12, padding: 16, background: "var(--ink-100)", borderRadius: 4, border: "1px dashed var(--orchid)" }}>
                 <div className="mono" style={{ fontSize: 10, color: "var(--orchid)", letterSpacing: "0.25em", marginBottom: 8 }}>RUNWAY</div>
-                <div className="led" style={{ fontSize: 28, color: "var(--orchid)" }}>~{(p.buffer.flipsRemaining / 1000).toFixed(0)}k flips</div>
+                <div className="led" style={{ fontSize: 28, color: "var(--orchid)" }}>~{(flipsRemaining / 1000).toFixed(0)}k flips</div>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>= 4.2B / 13.9k · ≥ 30× protocol life @ healthy flip rate</div>
               </div>
             </div>
@@ -273,9 +296,9 @@ export default function StatsV1Page() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             {[
-              { name: "CasteHook",  addr: "0x6666...CA57e", desc: "v4 hook · 0xACC flag · mined CREATE2" },
-              { name: "CasteToken", addr: "0x6666...6605e", desc: "ERC20 · one-shot mint by hook" },
-              { name: "CasteCard",  addr: "0x6666...3F11A", desc: "ERC721Enumerable · sealed + flip" },
+              { name: "CasteHook",  addr: shortAddr(hookAddr),  desc: "v4 hook · 0xACC flag · mined CREATE2" },
+              { name: "CasteToken", addr: shortAddr(tokenAddr), desc: "ERC20 · one-shot mint by hook" },
+              { name: "CasteCard",  addr: shortAddr(cardAddr),  desc: "ERC721Enumerable · sealed + flip" },
             ].map((c) => (
               <div key={c.name} style={{ padding: 14, background: "var(--ink-100)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
                 <div className="display" style={{ fontSize: 14, color: "var(--bone)", letterSpacing: "0.05em" }}>{c.name}</div>

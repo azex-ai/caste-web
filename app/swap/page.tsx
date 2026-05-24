@@ -1,10 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { TierBadge } from "@/components/caste/tier-badge";
-import { PHASE_STATE, LAST_BUY_V1, POOLS_V1 } from "@/lib/caste/mock";
+import { LAST_BUY_V1, POOLS_V1 } from "@/lib/caste/mock";
+import { useStats } from "@/lib/caste/hooks";
+import { useBuyCaste } from "@/lib/caste/writes";
 
-export const dynamic = "force-static";
-
+const ONE_E18 = 10n ** 18n;
 const UNIT_USDC = 6.66666;
 const CASTE_PER_USDC = 21008;
 const MAX_CARDS_PER_BUY = 4;
@@ -15,7 +21,10 @@ const fmtCaste = (n: number) =>
 const log10 = (u: number) => Math.log10(Math.max(1, u));
 
 export default function SwapV1Page() {
-  const units = 12;
+  const { data: stats } = useStats();
+  const { address } = useAccount();
+  const buy = useBuyCaste();
+  const [units, setUnits] = useState(12);
   const usdcIn = units * UNIT_USDC;
   const fee = usdcIn * 0.015;
   const swappable = usdcIn - fee;
@@ -24,11 +33,19 @@ export default function SwapV1Page() {
   const m = POOLS_V1.mega;
   const h = POOLS_V1.hourly;
 
+  const cardsMinted = stats?.cardsMinted ?? 0;
+  const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
+  const bufferStart = stats ? Number(BigInt(stats.bufferStart) / ONE_E18) : 4_200_000_000;
+  const flipsRemaining = stats ? Number(BigInt(stats.bufferRemaining) / (13_900n * ONE_E18)) : 0;
+  const fomoLeft = stats?.fomoSecondsLeft ?? 0;
+  const fomoHh = Math.floor(fomoLeft / 3600).toString().padStart(2, "0");
+  const fomoMm = Math.floor((fomoLeft % 3600) / 60).toString().padStart(2, "0");
+  const fomoSs = (fomoLeft % 60).toString().padStart(2, "0");
+
   const tickerItems = [
-    { tag: "▸ PHASE A", text: `${PHASE_STATE.cardsMinted.toLocaleString()} / 10,000 sealed cards minted · sell tax 25%`, color: "var(--blood-hi)" },
-    { tag: "▸ LASTBUY", text: "you · 0x6e91…aa83 · last buy 14s ago · +120s FOMO boost", color: "var(--jade)" },
-    { tag: "▸ BUFFER",  text: "3.89B / 4.20B CASTE in flip reserve · ~280k flips remain", color: "var(--gold-hi)" },
-    { tag: "▸ FOMO",    text: "deadline 06:17:42 · MEGA pool $184K → YOU (last buyer)", color: "var(--blood-hi)" },
+    { tag: "▸ PHASE A", text: `${cardsMinted.toLocaleString()} / 10,000 sealed cards minted · sell tax 25%`, color: "var(--blood-hi)" },
+    { tag: "▸ BUFFER",  text: `${(bufferRemaining / 1e9).toFixed(2)}B / ${(bufferStart / 1e9).toFixed(1)}B CASTE · ~${(flipsRemaining / 1000).toFixed(0)}k flips remain`, color: "var(--gold-hi)" },
+    { tag: "▸ FOMO",    text: `deadline ${fomoHh}:${fomoMm}:${fomoSs} → last buyer wins mega`, color: "var(--blood-hi)" },
   ];
 
   return (
@@ -75,7 +92,7 @@ export default function SwapV1Page() {
             </Link>
           </div>
 
-          <UnitStepper units={units} />
+          <UnitStepper units={units} onChange={setUnits} />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ padding: 14, background: "var(--ink-100)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
@@ -109,21 +126,37 @@ export default function SwapV1Page() {
           </div>
 
           <button
+            disabled={!address || buy.isPending}
+            onClick={() => buy.mutate({ units })}
             style={{
               padding: "20px 0",
-              background: "var(--acid)",
-              color: "var(--ink-000)",
+              background: !address || buy.isPending ? "var(--ink-300)" : "var(--acid)",
+              color: !address || buy.isPending ? "var(--ink-600)" : "var(--ink-000)",
               fontFamily: "var(--f-display)",
               fontSize: 18,
               letterSpacing: "0.12em",
               border: "none",
               borderRadius: 4,
-              boxShadow: "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)",
-              cursor: "pointer",
+              boxShadow: !address || buy.isPending ? "none" : "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)",
+              cursor: !address || buy.isPending ? "not-allowed" : "pointer",
             }}
           >
-            BUY {units} UNITS · ${fmt(usdcIn)} → {fmtCaste(casteOut)} CASTE + {willMint} SEALED CARDS
+            {!address
+              ? "CONNECT WALLET TO BUY"
+              : buy.isPending
+              ? "BUYING…"
+              : `BUY ${units} UNITS · $${fmt(usdcIn)} → ${fmtCaste(casteOut)} CASTE + ${willMint} SEALED`}
           </button>
+          {buy.isError && (
+            <div className="mono" style={{ fontSize: 11, color: "var(--blood-hi)", letterSpacing: "0.05em", textAlign: "center", padding: 8, border: "1px dashed var(--blood-lo)", borderRadius: 4 }}>
+              ✗ {buy.error?.message ?? "tx failed"}
+            </div>
+          )}
+          {buy.isSuccess && (
+            <div className="mono" style={{ fontSize: 11, color: "var(--jade)", letterSpacing: "0.05em", textAlign: "center", padding: 8, border: "1px dashed var(--jade)", borderRadius: 4 }}>
+              ✓ buy confirmed at block {buy.data.blockNumber.toString()}
+            </div>
+          )}
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", textAlign: "center" }}>
             ▸ executes in 1 tx · no multiplier roll · flip cards anytime from /mycards
           </div>
@@ -217,25 +250,26 @@ const stepBtn: React.CSSProperties = {
   justifyContent: "center",
 };
 
-function UnitStepper({ units }: { units: number }) {
+function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number) => void }) {
   const presets = [1, 4, 10, 25, 50, 100];
+  const setUnits = (u: number) => onChange?.(Math.max(1, Math.min(100, u)));
   return (
     <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-100)", padding: "20px 22px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <span className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-600)" }}>
           UNITS · 1 UNIT = $6.66666
         </span>
-        <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)" }}>balance $12,408</span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)" }}>range 1–100</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 56px", gap: 14, alignItems: "stretch" }}>
-        <button style={stepBtn}>−</button>
+        <button style={stepBtn} onClick={() => setUnits(units - 1)} aria-label="decrement">−</button>
         <div style={{ textAlign: "center", padding: "6px 0", background: "var(--ink-000)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
           <div className="led" style={{ fontSize: 84, color: "var(--acid)", lineHeight: 1, textShadow: "0 0 16px oklch(0.90 0.20 115 / 0.45)" }}>
             {units}
           </div>
           <div className="mono" style={{ fontSize: 10, letterSpacing: "0.35em", color: "var(--ink-600)", marginTop: 4 }}>UNITS</div>
         </div>
-        <button style={stepBtn}>+</button>
+        <button style={stepBtn} onClick={() => setUnits(units + 1)} aria-label="increment">+</button>
       </div>
 
       <div style={{ marginTop: 18, position: "relative" }}>
@@ -255,6 +289,7 @@ function UnitStepper({ units }: { units: number }) {
         {presets.map((p) => (
           <button
             key={p}
+            onClick={() => setUnits(p)}
             style={{
               flex: 1,
               padding: "8px 0",
