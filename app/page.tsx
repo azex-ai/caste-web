@@ -154,7 +154,13 @@ export default function LandingV1Page() {
             const labels = ["1m ago · cz.eth", "3s · you", "8m ago · vitalik.eth", "12m ago · 0x9f3a…ce21"];
             return (
               <div key={i} style={{ padding: 14, border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", display: "flex", gap: 14, alignItems: "center" }}>
-                <CasteCard card={c} w={88} h={126} />
+                {/* CasteCard's inner banners + stamps use fixed pixel sizes designed for ~260×380,
+                    so for thumbnails we render at native size and CSS-scale the whole thing down. */}
+                <div style={{ width: 88, height: 126, position: "relative", flexShrink: 0 }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, transform: "scale(0.338)", transformOrigin: "top left" }}>
+                    <CasteCard card={c} w={260} h={372} />
+                  </div>
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>FLIP PAYOUT</div>
                   <div className="led" style={{ fontSize: 26, color: "var(--gold-hi)", lineHeight: 1, textShadow: "var(--glow-gold)" }}>+{payouts[i]}</div>
