@@ -11,7 +11,7 @@ export default async function SettlePage({ searchParams }: { searchParams: Searc
     <div style={{ padding: "40px 40px" }}>
       <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
         <a
-          href="/caste/settle?kind=hourly"
+          href="/settle?kind=hourly"
           className="mono"
           style={{
             padding: "8px 16px",
@@ -27,7 +27,7 @@ export default async function SettlePage({ searchParams }: { searchParams: Searc
           HOURLY SETTLE
         </a>
         <a
-          href="/caste/settle?kind=mega"
+          href="/settle?kind=mega"
           className="mono"
           style={{
             padding: "8px 16px",

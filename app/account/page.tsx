@@ -39,10 +39,10 @@ export default function AccountV1Page() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Link href="/caste/swap" style={{ padding: "12px 22px", background: "var(--acid)", color: "var(--ink-000)", fontFamily: "var(--f-display)", fontSize: 13, letterSpacing: "0.12em", borderRadius: 4, textDecoration: "none" }}>
+          <Link href="/swap" style={{ padding: "12px 22px", background: "var(--acid)", color: "var(--ink-000)", fontFamily: "var(--f-display)", fontSize: 13, letterSpacing: "0.12em", borderRadius: 4, textDecoration: "none" }}>
             BUY → MINT SEALED
           </Link>
-          <Link href="/caste/mycards" style={{ padding: "12px 22px", background: "transparent", color: "var(--gold-hi)", border: "1px solid var(--gold)", fontFamily: "var(--f-mono)", fontSize: 12, letterSpacing: "0.18em", borderRadius: 4, textDecoration: "none" }}>
+          <Link href="/mycards" style={{ padding: "12px 22px", background: "transparent", color: "var(--gold-hi)", border: "1px solid var(--gold)", fontFamily: "var(--f-mono)", fontSize: 12, letterSpacing: "0.18em", borderRadius: 4, textDecoration: "none" }}>
             FLIP MY {me.totalSealed} →
           </Link>
         </div>
@@ -176,7 +176,7 @@ export default function AccountV1Page() {
               · {FLIPPED_CARDS.length} REVEALED · TOP 4
             </span>
             <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
-            <Link href="/caste/gallery" style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--acid)", letterSpacing: "0.15em", textDecoration: "none" }}>
+            <Link href="/gallery" style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--acid)", letterSpacing: "0.15em", textDecoration: "none" }}>
               VIEW ALL →
             </Link>
           </div>
@@ -209,7 +209,7 @@ export default function AccountV1Page() {
                 <span style={{ color: "var(--bone-dim)" }}> &nbsp;Until you flip, this counter won&apos;t move.</span>
               </div>
               <Link
-                href="/caste/mycards"
+                href="/mycards"
                 style={{
                   display: "inline-block",
                   marginTop: 12,

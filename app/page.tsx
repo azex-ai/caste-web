@@ -1,489 +1,206 @@
 import Link from "next/link";
-import {
-  Activity,
-  ArrowDownUp,
-  ChevronLeft,
-  ChevronRight,
-  Gauge,
-  Sparkles,
-  Waves,
-} from "lucide-react";
-import { api } from "@/lib/api/client";
-import { getEthUsd } from "@/lib/external/price";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Stat } from "@/components/stat";
-import {
-  formatEthCompact,
-  formatUsdCompact,
-  tokenVolumeUsdEquivalent,
-} from "@/lib/format";
-import { formatCount, shortAddr, timeAgo } from "@/lib/utils";
-import type { Token } from "@/lib/api/types";
+import { Ticker, Footer } from "@/components/caste/caste-chrome";
+import { SealedCard } from "@/components/caste/sealed-card";
+import { CasteCard } from "@/components/caste/caste-card";
+import { StatCard } from "@/components/caste/stat-card";
+import { Countdown } from "@/components/caste/countdown-clock";
+import { MOCK_CARDS, PHASE_STATE, POOLS_V1 } from "@/lib/caste/mock";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-static";
 
-const PAGE_SIZE = 25;
-
-type SortKey = "volume" | "swapCount" | "poolCount" | "firstSeenBlock";
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "volume", label: "Volume" },
-  { key: "swapCount", label: "Swaps" },
-  { key: "poolCount", label: "Pools" },
-  { key: "firstSeenBlock", label: "Newest" },
-];
-
-type TokenWithUsd = Token & { usdEquivalent: number };
-
-export default async function HomePage(props: {
-  searchParams: Promise<{ orderBy?: string; page?: string }>;
-}) {
-  const sp = await props.searchParams;
-  const orderBy: SortKey =
-    sp.orderBy === "swapCount" ||
-    sp.orderBy === "poolCount" ||
-    sp.orderBy === "firstSeenBlock"
-      ? sp.orderBy
-      : "volume";
-  const requestedPage = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
-
-  const [stats, tokenCountResult, ethUsd] = await Promise.all([
-    api.stats().catch(() => null),
-    api.tokensCount({ hookedOnly: true }).catch(() => null),
-    getEthUsd(),
-  ]);
-
-  const tokenTotal = tokenCountResult?.count ?? stats?.memeCount ?? 0;
-  const totalPages = Math.max(1, Math.ceil(tokenTotal / PAGE_SIZE));
-  const page = Math.min(requestedPage, totalPages);
-  const offset = (page - 1) * PAGE_SIZE;
-  const serverOrderBy = orderBy === "volume" ? "volumeUsdEquivalent" : orderBy;
-
-  const tokensRaw = await api
-    .tokens({
-      limit: PAGE_SIZE,
-      offset,
-      orderBy: serverOrderBy,
-      hookedOnly: true,
-    })
-    .catch(() => []);
-
-  const tokens = tokensRaw.map((t) => ({
-    ...t,
-    usdEquivalent: tokenVolumeUsdEquivalent(t, ethUsd),
-  }));
-  const startRank = offset + 1;
-  const endRank = offset + tokens.length;
+export default function LandingV1Page() {
+  const phase = POOLS_V1;
+  const tickerItems = [
+    { tag: "▸ BUY",     text: "0x9f3a…ce21 just sealed 4 cards — flipping in 14s", color: "var(--acid)" },
+    { tag: "▸ FLIP",    text: "cz.eth ripped MYTHIC CEX · paid 2.4M CASTE from buffer", color: "var(--gold-hi)" },
+    { tag: "▸ PHASE A", text: `${PHASE_STATE.cardsMinted.toLocaleString()} / ${PHASE_STATE.cardsCap.toLocaleString()} cards minted · 25% sell tax active`, color: "var(--blood-hi)" },
+    { tag: "▸ BUFFER",  text: `${(phase.buffer.remaining / 1e9).toFixed(2)}B / 4.2B CASTE left · ~${(phase.buffer.flipsRemaining / 1000).toFixed(0)}k flips before depletion`, color: "var(--orchid)" },
+    { tag: "▸ MEGA",    text: `$${phase.mega.pool.toLocaleString()} → last buyer (you) at deadline-zero`, color: "var(--gold-hi)" },
+  ];
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
-      <header className="mb-5 rounded-[2rem] border border-white/70 bg-white/60 p-5 shadow-[0_20px_55px_rgb(255_0_122/0.07)] backdrop-blur-md sm:p-6">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="min-w-0">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklch,var(--color-accent)_18%,transparent)] bg-[color-mix(in_oklch,var(--color-accent)_8%,white)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Live v4 hook index
+    <div style={{ width: "100%" }}>
+      <Ticker items={tickerItems} />
+
+      <section style={{ position: "relative", padding: "60px 60px 48px", overflow: "hidden" }}>
+        <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+        <div style={{ position: "absolute", top: -240, right: -120, width: 720, height: 720, borderRadius: "50%", background: "radial-gradient(circle, oklch(0.78 0.18 82 / 0.10), transparent 65%)" }} />
+
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 56, alignItems: "center" }}>
+          <div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+              <span className="chip chip--blood breathe">● PHASE A · MINT WINDOW</span>
+              <span className="chip chip--acid">v4 HOOK · MAINNET</span>
+              <span className="chip">{PHASE_STATE.cardsCap - PHASE_STATE.cardsMinted} CARDS LEFT</span>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight text-[var(--color-text)] sm:text-5xl">
-                  univ4-meme
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-text-muted)] sm:text-base">
-                  Hooked Uniswap v4 meme launches, ranked by activity and pool
-                  structure.
-                </p>
-              </div>
-              <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-xs shadow-[0_12px_30px_rgb(92_20_70/0.08)]">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-positive)] opacity-30" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-positive)]" />
-                </span>
-                <span className="text-[var(--color-text-dim)]">ETH/USD</span>
-                <span className="tabular font-medium text-[var(--color-text)]">
-                  {ethUsd > 0 ? `$${ethUsd.toFixed(2)}` : "syncing..."}
-                </span>
-              </div>
+
+            <h1 style={{ margin: 0, lineHeight: 0.86 }}>
+              <span className="display" style={{ display: "block", fontSize: 132, color: "var(--bone)", letterSpacing: "-0.02em" }}>BUY QUIET.</span>
+              <span className="display" style={{ display: "block", fontSize: 132, color: "var(--gold-hi)", letterSpacing: "-0.02em", marginTop: -4, textShadow: "0 0 50px oklch(0.78 0.18 82 / 0.25)" }}>FLIP LOUD.</span>
+            </h1>
+
+            <p style={{ marginTop: 28, fontSize: 21, lineHeight: 1.55, color: "var(--bone-dim)", maxWidth: 580, fontWeight: 400 }}>
+              Every $6.66666 mints a <strong style={{ color: "var(--bone)" }}>sealed card</strong> with no attributes.
+              You flip it on your schedule — that&apos;s where the cinema happens.
+              <span style={{ color: "var(--ink-700)" }}> Until then, your wallet stays mute.</span>
+            </p>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+              <Link href="/swap" style={{ padding: "18px 32px", background: "var(--acid)", color: "var(--ink-000)", fontFamily: "var(--f-display)", fontSize: 16, letterSpacing: "0.1em", border: "none", borderRadius: 4, textDecoration: "none", boxShadow: "0 6px 0 var(--acid-lo), 0 14px 32px oklch(0.90 0.20 115 / 0.35)" }}>
+                BUY $CASTE — $6.66666 / UNIT
+              </Link>
+              <Link href="/mycards" style={{ padding: "18px 28px", background: "transparent", color: "var(--gold-hi)", fontFamily: "var(--f-display)", fontSize: 16, letterSpacing: "0.1em", border: "1px solid var(--gold)", borderRadius: 4, textDecoration: "none" }}>
+                FLIP MY SEALED ↗
+              </Link>
+            </div>
+
+            <div className="mono" style={{ marginTop: 22, fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.05em", lineHeight: 1.7 }}>
+              ▸ Each buy auto-mints up to 4 sealed cards (max 10,000 protocol-wide)<br />
+              ▸ Flip after 2-block delay · RNG fixes at flip time · payout from 4.2B buffer<br />
+              ▸ Phase A sell tax 25% (mint window) → 1.5% once 10,000 cards minted
             </div>
           </div>
-        </div>
-      </header>
 
-      {stats ? (
-        <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat
-            label="Meme tokens"
-            value={formatCount(stats.memeCount)}
-            tone="accent"
-          />
-          <Stat label="Hooks" value={formatCount(stats.hookCount)} tone="violet" />
-          <Stat
-            label="Hooked pools"
-            value={formatCount(stats.hookedPoolCount)}
-            hint={`of ${formatCount(stats.totalPoolCount)} total`}
-            tone="positive"
-          />
-          <Stat
-            label="Hook swaps"
-            value={formatCount(stats.swapsThroughHookedPools)}
-          />
-        </section>
-      ) : null}
-
-      <section className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Activity
-              className="h-4 w-4 text-[var(--color-accent)]"
-              aria-hidden="true"
-            />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text)]">
-              Meme tokens
-            </h2>
-            <Badge variant="outline" className="tabular">
-              {formatCount(tokenTotal)}
-            </Badge>
-            <span className="text-xs text-[var(--color-text-dim)]">
-              showing {tokens.length > 0 ? `${startRank}-${endRank}` : "0"}
-            </span>
+          <div style={{ position: "relative", height: 540, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <div style={{ position: "absolute", transform: "rotate(-12deg) translate(-100px, 50px)", opacity: 0.85 }}>
+              <SealedCard tokenId={8423} commitBlock={22140221} buyUnits={12} bought="14s" w={240} h={345} showFlipBtn={false} />
+            </div>
+            <div style={{ position: "absolute", transform: "rotate(8deg) translate(90px, -20px)", opacity: 0.9 }}>
+              <SealedCard tokenId={8422} commitBlock={22140221} buyUnits={12} bought="14s" w={240} h={345} showFlipBtn={false} />
+            </div>
+            <div style={{ position: "relative", filter: "drop-shadow(0 24px 40px rgb(0 0 0 / 0.55))" }}>
+              <SealedCard tokenId={8421} commitBlock={22140221} buyUnits={12} bought="14s" w={260} h={372} showFlipBtn={false} />
+            </div>
+            <div style={{ position: "absolute", bottom: 4, right: 4 }}>
+              <div className="hk-banner" style={{ fontSize: 13 }}>face-down · RNG locks at flip</div>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-[var(--color-text-dim)]">
-            Page {page} of {totalPages}. Sort changes reset to the first page.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:items-end">
-          <nav
-            aria-label="Sort meme tokens"
-            className="inline-flex w-full gap-1 rounded-full border border-[var(--color-border)] bg-white p-1 text-xs shadow-[0_14px_34px_rgb(92_20_70/0.08)] sm:w-auto"
-          >
-            {SORT_OPTIONS.map(({ key, label }) => {
-              const active = orderBy === key;
-              return (
-                <Link
-                  key={key}
-                  href={{ query: { orderBy: key, page: 1 } }}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 font-medium sm:flex-none ${
-                    active
-                      ? "bg-[var(--color-accent)] text-[var(--color-accent-fg)] shadow-[0_10px_22px_rgb(255_0_122/0.22)]"
-                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]"
-                  }`}
-                >
-                  {active ? (
-                    <ArrowDownUp className="h-3 w-3" aria-hidden="true" />
-                  ) : null}
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
-          <PaginationNav orderBy={orderBy} page={page} totalPages={totalPages} />
         </div>
       </section>
 
-      <Card className="overflow-hidden">
-        <TokenMobileList tokens={tokens} startRank={startRank} />
-        <TokenTable tokens={tokens} startRank={startRank} />
-        <PaginationFooter
-          orderBy={orderBy}
-          page={page}
-          totalPages={totalPages}
-          startRank={tokens.length > 0 ? startRank : 0}
-          endRank={endRank}
-          tokenTotal={tokenTotal}
-        />
-      </Card>
-    </main>
-  );
-}
-
-function TokenMobileList({
-  tokens,
-  startRank,
-}: {
-  tokens: TokenWithUsd[];
-  startRank: number;
-}) {
-  return (
-    <div className="md:hidden">
-      {tokens.length === 0 ? (
-        <EmptyTokens />
-      ) : (
-        <div className="divide-y divide-[var(--color-border)]">
-          {tokens.map((t, index) => (
-            <Link
-              key={t.address}
-              href={`/token/${t.address}`}
-              className="block px-4 py-4 hover:bg-[color-mix(in_oklch,var(--color-accent)_5%,white)]"
-            >
-              <div className="flex items-start gap-3">
-                <RankPill rank={startRank + index} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="truncate font-semibold text-[var(--color-text)]">
-                      {t.symbol ?? "?"}
-                    </span>
-                    {t.name ? (
-                      <span className="truncate text-xs text-[var(--color-text-muted)]">
-                        {t.name}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="tabular mt-0.5 text-xs text-[var(--color-text-dim)]">
-                    {shortAddr(t.address)}
-                  </div>
-                </div>
-                <div className="tabular shrink-0 text-right">
-                  <div className="font-semibold text-[var(--color-text)]">
-                    {formatUsdCompact(t.usdEquivalent)}
-                  </div>
-                  <div className="text-xs text-[var(--color-text-dim)]">
-                    {formatCount(t.swapCount)} swaps
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--color-text-muted)]">
-                <Badge variant={t.poolCount > 1 ? "accent" : "outline"}>
-                  {t.poolCount} pools
-                </Badge>
-                <span className="inline-flex items-center gap-1.5">
-                  <Waves
-                    className="h-3.5 w-3.5 text-[var(--color-text-dim)]"
-                    aria-hidden="true"
-                  />
-                  {timeAgo(t.firstSeenAt)}
-                </span>
-              </div>
-            </Link>
-          ))}
+      <section style={{ padding: "0 60px 48px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 14 }}>
+          <div style={{ position: "relative", padding: "26px 30px", background: "linear-gradient(135deg, oklch(0.18 0.06 82), oklch(0.10 0.02 82))", border: "1px solid var(--gold)", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
+            <div className="mono" style={{ fontSize: 10, letterSpacing: "0.3em", color: "var(--gold-hi)", marginBottom: 8 }}>MEGA POOL · LAST-BUYER FOMO</div>
+            <div className="led" style={{ fontSize: 80, color: "var(--gold-hi)", lineHeight: 0.9, textShadow: "var(--glow-gold)" }}>${phase.mega.pool.toLocaleString()}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 10 }}>
+              <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>last buy {phase.mega.lastBuyer.addr.split(" · ")[0]}</div>
+              <Countdown hh={phase.mega.deadline.hh} mm={phase.mega.deadline.mm} ss={phase.mega.deadline.ss} state="warning" label="DEADLINE" />
+            </div>
+          </div>
+          <StatCard label="CARDS MINTED" value={`${PHASE_STATE.cardsMinted.toLocaleString()} / 10K`} meta="Phase A · 25% sell tax" tone="blood" />
+          <StatCard label="BUFFER LEFT" value={`${(phase.buffer.remaining / 1e9).toFixed(2)}B`} meta={`≈ ${(phase.buffer.flipsRemaining / 1000).toFixed(0)}k flips left`} tone="gold" />
+          <StatCard label="HOURLY POOL" value={`$${phase.hourly.pool.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} meta={`draw in ${phase.hourly.drawIn.mm}:${phase.hourly.drawIn.ss}`} tone="jade" />
         </div>
-      )}
+      </section>
+
+      <section style={{ padding: "20px 60px 48px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 28 }}>
+          <span className="display" style={{ fontSize: 48, color: "var(--bone)" }}>How V1 Plays</span>
+          <span className="display" style={{ fontSize: 18, color: "var(--ink-700)", letterSpacing: "0.2em" }}>QUIET / LOUD / DONE</span>
+          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>01 · 02 · 03</span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, border: "1px solid var(--ink-400)", borderRadius: 6, overflow: "hidden" }}>
+          <Step num="01" en="QUIET BUY"     color="var(--acid)"     body="Pay $6.66666 × N (1–100 units). Get curve-price CASTE plus up to 4 sealed cards. Wallet balance changes; no animation, no reveal, no drama." kicker="cards mint with commitBlock only · attrs all zero" />
+          <Step num="02" en="FLIP CEREMONY"  color="var(--gold-hi)"  body="Wait 2 blocks. Open /mycards, pick a sealed card, hit Flip. RNG seeds from execution-time entropy — payout streams from the 4.2B buffer." kicker="this is the cinema moment · tier × variant × multiplier" />
+          <Step num="03" en="PHASE B FLIPS"  color="var(--blood-hi)" body="When the 10,000th card mints, Phase B unlocks: sell tax drops 25% → 1.5%. The mint window closes; secondary market does the rest." kicker="transition is atomic · monotonic · irreversible" />
+        </div>
+      </section>
+
+      <section style={{ padding: "20px 60px 48px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 22 }}>
+          <span className="display" style={{ fontSize: 36, color: "var(--bone)" }}>Where the Money Goes</span>
+          <span className="display" style={{ fontSize: 14, color: "var(--ink-700)", letterSpacing: "0.2em" }}>BUY 1.5% · PHASE A SELL 25%</span>
+          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+          <FlowBlock title="EVERY BUY · $6.66666 / UNIT" subtitle="1.5% fee split — rest goes through LP curve"
+            lanes={[
+              { pct: 98.5, v: "$6.566", l: "TO POOL CURVE", color: "var(--cobalt)",  note: "buyer receives CASTE at LP price" },
+              { pct:  1.0, v: "$0.067", l: "→ HOURLY",       color: "var(--jade)",    note: "epochLastBuyer takes this hour" },
+              { pct:  0.5, v: "$0.033", l: "→ MEGA",         color: "var(--gold-hi)", note: "global lastBuyer at FOMO zero" },
+            ]} />
+          <FlowBlock title="PHASE A SELL · 25% TAX" subtitle="while < 10k cards minted · forces patience" hot
+            lanes={[
+              { pct: 75.0,  v: "≈ $3.75", l: "TO SELLER", color: "var(--bone-dim)", note: "75% of USDC out · the cost of exit" },
+              { pct: 16.67, v: "≈ $0.84", l: "→ HOURLY",   color: "var(--jade)",    note: "fattens hourly draw all day" },
+              { pct:  8.33, v: "≈ $0.42", l: "→ MEGA",     color: "var(--gold-hi)", note: "fattens FOMO jackpot" },
+            ]} />
+        </div>
+
+        <div style={{ marginTop: 14, padding: 14, border: "1px dashed var(--gold)", borderRadius: 6, background: "oklch(0.20 0.06 82 / 0.12)" }}>
+          <div className="mono" style={{ fontSize: 11, color: "var(--gold-hi)", letterSpacing: "0.15em", lineHeight: 1.7 }}>
+            ▸ <strong>4.2B CASTE buffer</strong> is one-way drain — funds flip payouts only · LP holds the other 16.8B · no Reserve/Burn/Keeper in V1
+          </div>
+        </div>
+      </section>
+
+      <section style={{ padding: "20px 60px 48px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
+          <span className="display" style={{ fontSize: 28, color: "var(--bone)" }}>Recent Flips</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>· LIVE</span>
+          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+          <Link href="/activity" className="mono" style={{ fontSize: 11, color: "var(--acid)", letterSpacing: "0.15em", textDecoration: "none" }}>
+            FULL ACTIVITY →
+          </Link>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+          {[MOCK_CARDS[1]!, MOCK_CARDS[0]!, MOCK_CARDS[3]!, MOCK_CARDS[7]!].map((c, i) => {
+            const payouts = ["2.40M", "287.5K", "92.1K", "54.0K"];
+            const labels = ["1m ago · cz.eth", "3s · you", "8m ago · vitalik.eth", "12m ago · 0x9f3a…ce21"];
+            return (
+              <div key={i} style={{ padding: 14, border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", display: "flex", gap: 14, alignItems: "center" }}>
+                <CasteCard card={c} w={88} h={126} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>FLIP PAYOUT</div>
+                  <div className="led" style={{ fontSize: 26, color: "var(--gold-hi)", lineHeight: 1, textShadow: "var(--glow-gold)" }}>+{payouts[i]}</div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--bone-dim)", marginTop: 4, letterSpacing: "0.05em" }}>$CASTE · {labels[i]}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }
 
-function TokenTable({
-  tokens,
-  startRank,
-}: {
-  tokens: TokenWithUsd[];
-  startRank: number;
-}) {
+function Step({ num, en, color, body, kicker }: { num: string; en: string; color: string; body: string; kicker: string }) {
   return (
-    <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[760px] text-sm">
-        <thead className="bg-[color-mix(in_oklch,var(--color-bg-muted)_82%,transparent)] text-[11px] uppercase tracking-wider text-[var(--color-text-dim)]">
-          <tr>
-            <th className="px-4 py-3 text-left font-semibold">Token</th>
-            <th className="px-4 py-3 text-right font-semibold">Volume</th>
-            <th className="px-4 py-3 text-right font-semibold">Swaps</th>
-            <th className="px-4 py-3 text-right font-semibold">Pools</th>
-            <th className="px-4 py-3 text-left font-semibold">First seen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tokens.length === 0 ? (
-            <tr>
-              <td colSpan={5}>
-                <EmptyTokens />
-              </td>
-            </tr>
-          ) : (
-            tokens.map((t, index) => (
-              <tr
-                key={t.address}
-                className="group border-t border-[var(--color-border)] hover:bg-[color-mix(in_oklch,var(--color-accent)_5%,white)]"
-              >
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/token/${t.address}`}
-                    className="flex items-center gap-3"
-                  >
-                    <RankPill rank={startRank + index} />
-                    <span className="min-w-0">
-                      <span className="flex items-baseline gap-2">
-                        <span className="truncate font-semibold text-[var(--color-text)] group-hover:text-[var(--color-accent)]">
-                          {t.symbol ?? "?"}
-                        </span>
-                        {t.name ? (
-                          <span className="max-w-[16rem] truncate text-xs font-normal text-[var(--color-text-muted)]">
-                            {t.name}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="tabular mt-0.5 block text-xs text-[var(--color-text-dim)]">
-                        {shortAddr(t.address)}
-                      </span>
-                    </span>
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="tabular font-semibold text-[var(--color-text)]">
-                    {formatUsdCompact(t.usdEquivalent)}
-                  </div>
-                  {BigInt(t.volumeEth18) > 0n ? (
-                    <div className="tabular text-xs text-[var(--color-text-dim)]">
-                      {formatEthCompact(t.volumeEth18)}
-                    </div>
-                  ) : null}
-                </td>
-                <td className="tabular px-4 py-3 text-right">
-                  {formatCount(t.swapCount)}
-                </td>
-                <td className="tabular px-4 py-3 text-right">
-                  <Badge variant={t.poolCount > 1 ? "accent" : "outline"}>
-                    {t.poolCount}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-xs text-[var(--color-text-muted)]">
-                  <span className="inline-flex items-center gap-2">
-                    <Waves
-                      className="h-3.5 w-3.5 text-[var(--color-text-dim)]"
-                      aria-hidden="true"
-                    />
-                    {timeAgo(t.firstSeenAt)}
-                  </span>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function PaginationFooter({
-  orderBy,
-  page,
-  totalPages,
-  startRank,
-  endRank,
-  tokenTotal,
-}: {
-  orderBy: SortKey;
-  page: number;
-  totalPages: number;
-  startRank: number;
-  endRank: number;
-  tokenTotal: number;
-}) {
-  return (
-    <div className="flex flex-col gap-3 border-t border-[var(--color-border)] bg-white/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-xs text-[var(--color-text-dim)]">
-        Showing{" "}
-        <span className="tabular font-semibold text-[var(--color-text-muted)]">
-          {startRank}-{endRank}
-        </span>{" "}
-        of{" "}
-        <span className="tabular font-semibold text-[var(--color-text-muted)]">
-          {formatCount(tokenTotal)}
-        </span>{" "}
-        hooked tokens
+    <div style={{ padding: "28px 24px 24px", borderRight: "1px solid var(--ink-400)", background: "var(--ink-200)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
+        <span className="display" style={{ fontSize: 56, color, lineHeight: 0.8 }}>{num}</span>
+        <div className="display" style={{ fontSize: 18, color: "var(--bone)", letterSpacing: "0.1em" }}>{en}</div>
       </div>
-      <div className="flex items-center justify-between gap-2 sm:justify-end">
-        <PaginationNav orderBy={orderBy} page={page} totalPages={totalPages} />
+      <p style={{ fontSize: 13, color: "var(--bone-dim)", lineHeight: 1.65, margin: 0 }}>{body}</p>
+      <div style={{ marginTop: 14, padding: "8px 0", borderTop: "1px dashed var(--ink-400)" }}>
+        <div className="mono" style={{ fontSize: 10, color, letterSpacing: "0.1em" }}>▸ {kicker}</div>
       </div>
     </div>
   );
 }
 
-function PaginationNav({
-  orderBy,
-  page,
-  totalPages,
-}: {
-  orderBy: SortKey;
-  page: number;
-  totalPages: number;
-}) {
+type Lane = { pct: number; v: string; l: string; color: string; note: string };
+function FlowBlock({ title, subtitle, lanes, hot }: { title: string; subtitle: string; lanes: Lane[]; hot?: boolean }) {
   return (
-    <nav
-      aria-label="Token pagination"
-      className="inline-flex items-center gap-2"
-    >
-      <PageButton
-        orderBy={orderBy}
-        page={page - 1}
-        disabled={page <= 1}
-        label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        Prev
-      </PageButton>
-      <span className="tabular rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-text-muted)]">
-        {page} / {totalPages}
-      </span>
-      <PageButton
-        orderBy={orderBy}
-        page={page + 1}
-        disabled={page >= totalPages}
-        label="Next page"
-      >
-        Next
-        <ChevronRight className="h-4 w-4" aria-hidden="true" />
-      </PageButton>
-    </nav>
-  );
-}
-
-function PageButton({
-  orderBy,
-  page,
-  disabled,
-  label,
-  children,
-}: {
-  orderBy: SortKey;
-  page: number;
-  disabled: boolean;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const className =
-    "inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--color-text-muted)] shadow-[0_10px_24px_rgb(92_20_70/0.08)]";
-  if (disabled) {
-    return (
-      <span aria-disabled="true" className={`${className} opacity-45`}>
-        {children}
-      </span>
-    );
-  }
-  return (
-    <Link
-      href={{ query: { orderBy, page } }}
-      aria-label={label}
-      className={`${className} hover:border-[color-mix(in_oklch,var(--color-accent)_30%,transparent)] hover:text-[var(--color-accent)]`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function RankPill({ rank }: { rank: number }) {
-  return (
-    <span className="tabular flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full border border-[color-mix(in_oklch,var(--color-accent)_24%,transparent)] bg-[color-mix(in_oklch,var(--color-accent)_8%,white)] px-2 text-xs font-semibold text-[var(--color-accent)]">
-      {rank}
-    </span>
-  );
-}
-
-function EmptyTokens() {
-  return (
-    <div className="px-4 py-14 text-center text-[var(--color-text-muted)]">
-      <div className="mx-auto flex max-w-sm flex-col items-center">
-        <div className="mb-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-3 text-[var(--color-accent)]">
-          <Gauge className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div className="font-medium text-[var(--color-text)]">
-          No hooked meme tokens indexed yet
-        </div>
-        <div className="mt-1 text-xs leading-5 text-[var(--color-text-dim)]">
-          Start the indexer with{" "}
-          <code className="tabular text-[var(--color-text-muted)]">pnpm dev</code>{" "}
-          and this list will populate as pools arrive.
-        </div>
+    <div style={{ padding: 20, border: hot ? "1px solid var(--blood-lo)" : "1px solid var(--ink-400)", borderRadius: 6, background: hot ? "oklch(0.16 0.04 25 / 0.15)" : "var(--ink-200)" }}>
+      <div className="mono" style={{ fontSize: 10, color: hot ? "var(--blood-hi)" : "var(--ink-600)", letterSpacing: "0.25em", marginBottom: 4 }}>{title}</div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginBottom: 14 }}>{subtitle}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {lanes.map((b, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "70px 90px 130px 1fr", gap: 12, alignItems: "center", padding: "8px 10px", background: "var(--ink-100)", borderLeft: `4px solid ${b.color}`, borderRadius: 3 }}>
+            <span className="led" style={{ fontSize: 18, color: b.color }}>{b.pct}%</span>
+            <span className="led" style={{ fontSize: 14, color: "var(--bone)" }}>{b.v}</span>
+            <span className="display" style={{ fontSize: 11, color: "var(--bone)", letterSpacing: "0.1em" }}>{b.l}</span>
+            <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.03em" }}>{b.note}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

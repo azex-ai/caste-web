@@ -70,7 +70,7 @@ export default function SwapV1Page() {
             <div style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--acid)", borderBottom: "2px solid var(--acid)", marginBottom: -1, letterSpacing: "0.1em" }}>
               BUY
             </div>
-            <Link href="/caste/sell" style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--blood-hi)", textDecoration: "none", letterSpacing: "0.1em" }}>
+            <Link href="/sell" style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--blood-hi)", textDecoration: "none", letterSpacing: "0.1em" }}>
               SELL · 25%
             </Link>
           </div>
@@ -498,7 +498,7 @@ function QuietBuyReceipt() {
             </span>
           </div>
           <Link
-            href="/caste/mycards"
+            href="/mycards"
             style={{
               padding: "6px 14px",
               background: "var(--ink-300)",

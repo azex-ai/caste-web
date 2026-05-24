@@ -1,28 +1,38 @@
 import "./globals.css";
+import "./caste-tokens.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Providers } from "@/components/providers";
+import { CasteProviders } from "./providers";
+import { PhaseBanner } from "@/components/caste/phase-banner";
+import { CasteNav } from "@/components/caste/caste-nav";
+import { PHASE_STATE } from "@/lib/caste/mock";
 
 export const metadata: Metadata = {
-  title: "univ4-meme — Uniswap v4 hook meme tracker",
+  title: "$CASTE — flip-card meme protocol",
   description:
-    "Live index of every hooked pool and meme launched on Uniswap v4, with hook behavior classification.",
+    "Sealed cards, deferred reveal, phase-based economics. Live on Uniswap v4.",
 };
 
-export default function RootLayout({
-  children,
-  modal,
-}: {
-  children: ReactNode;
-  modal: ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>
-          {children}
-          {modal}
-        </Providers>
+        <CasteProviders>
+          <div className="caste-root">
+            <PhaseBanner
+              phase={PHASE_STATE.isPhaseA ? "A" : "B"}
+              cardsMinted={PHASE_STATE.cardsMinted}
+              cardsCap={PHASE_STATE.cardsCap}
+              sellTax={
+                PHASE_STATE.isPhaseA
+                  ? PHASE_STATE.phaseASellTax
+                  : PHASE_STATE.phaseBSellTax
+              }
+            />
+            <CasteNav />
+            {children}
+          </div>
+        </CasteProviders>
       </body>
     </html>
   );

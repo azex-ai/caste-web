@@ -32,8 +32,8 @@ export default async function CardDetailV1Page({ params }: { params: Promise<{ i
 
       <section style={{ padding: "44px 60px 16px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
-          <Link href="/caste/mycards" className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.2em", textDecoration: "none" }}>
-            ← /caste/mycards
+          <Link href="/mycards" className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.2em", textDecoration: "none" }}>
+            ← /mycards
           </Link>
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.3em" }}>· /CASTE/CARD/{tokenId}</span>
         </div>

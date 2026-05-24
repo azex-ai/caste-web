@@ -5,16 +5,16 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "./connect-button";
 
 const NAV_ITEMS = [
-  { href: "/caste",             label: "/home" },
-  { href: "/caste/swap",        label: "/swap" },
-  { href: "/caste/sell",        label: "/sell" },
-  { href: "/caste/mycards",     label: "/mycards" },
-  { href: "/caste/pools",       label: "/pools" },
-  { href: "/caste/gallery",     label: "/gallery" },
-  { href: "/caste/account",     label: "/account" },
-  { href: "/caste/leaderboard", label: "/leaders" },
-  { href: "/caste/activity",    label: "/activity" },
-  { href: "/caste/stats",       label: "/stats" },
+  { href: "/",             label: "/home" },
+  { href: "/swap",        label: "/swap" },
+  { href: "/sell",        label: "/sell" },
+  { href: "/mycards",     label: "/mycards" },
+  { href: "/pools",       label: "/pools" },
+  { href: "/gallery",     label: "/gallery" },
+  { href: "/account",     label: "/account" },
+  { href: "/leaderboard", label: "/leaders" },
+  { href: "/activity",    label: "/activity" },
+  { href: "/stats",       label: "/stats" },
 ] as const;
 
 export function CasteNav() {
@@ -33,7 +33,7 @@ export function CasteNav() {
         gap: 14,
       }}
     >
-      <Link href="/caste" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
         <div
           style={{
             position: "relative",
@@ -61,7 +61,7 @@ export function CasteNav() {
 
       <nav style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: "var(--f-mono)", flexWrap: "wrap" }}>
         {NAV_ITEMS.map((it) => {
-          const on = it.href === "/caste" ? pathname === "/caste" : pathname.startsWith(it.href);
+          const on = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
           return (
             <Link
               key={it.href}
