@@ -33,30 +33,64 @@ export function CasteNav() {
         gap: 14,
       }}
     >
-      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
-        <div
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }} aria-label="$CASTE — home">
+        <span
+          aria-hidden
           style={{
             position: "relative",
-            width: 34,
-            height: 34,
-            borderRadius: 4,
-            background: "var(--acid)",
+            width: 36,
+            height: 36,
+            border: "1px solid var(--acid-lo)",
+            background: "oklch(0.08 0.02 115 / 0.85)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            boxShadow: "var(--glow-acid)",
+            overflow: "hidden",
           }}
         >
-          <span className="display" style={{ fontSize: 18, color: "var(--ink-000)", letterSpacing: "-0.06em" }}>◇</span>
-          <div style={{ position: "absolute", inset: 0, border: "1px solid oklch(0 0 0 / 0.4)", borderRadius: 4, pointerEvents: "none" }} />
-        </div>
-        <div>
-          <div className="display" style={{ fontSize: 18, color: "var(--bone)", letterSpacing: "-0.01em" }}>
-            $CASTE<span style={{ color: "var(--acid)" }}>.</span>
-          </div>
-          <div className="mono" style={{ fontSize: 8, letterSpacing: "0.3em", color: "var(--ink-600)" }}>
-            v4 HOOK · MAINNET
-          </div>
-        </div>
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "var(--tex-scanline)",
+              opacity: 0.55,
+              pointerEvents: "none",
+            }}
+          />
+          <span style={{ position: "absolute", top: -1, left: -1, width: 6, height: 6, borderTop: "1px solid var(--acid)", borderLeft: "1px solid var(--acid)" }} />
+          <span style={{ position: "absolute", top: -1, right: -1, width: 6, height: 6, borderTop: "1px solid var(--acid)", borderRight: "1px solid var(--acid)" }} />
+          <span style={{ position: "absolute", bottom: -1, left: -1, width: 6, height: 6, borderBottom: "1px solid var(--acid)", borderLeft: "1px solid var(--acid)" }} />
+          <span style={{ position: "absolute", bottom: -1, right: -1, width: 6, height: 6, borderBottom: "1px solid var(--acid)", borderRight: "1px solid var(--acid)" }} />
+          <span
+            style={{
+              fontFamily: "var(--f-led)",
+              fontSize: 22,
+              color: "var(--acid)",
+              textShadow: "0 0 8px var(--acid)",
+              lineHeight: 1,
+              position: "relative",
+            }}
+          >
+            $C
+          </span>
+        </span>
+        <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+          <span
+            style={{
+              fontFamily: "var(--f-led)",
+              fontSize: 22,
+              color: "var(--acid)",
+              textShadow: "0 0 8px var(--acid)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            $CASTE
+          </span>
+          <span className="mono" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--acid-lo)", marginTop: 4 }}>
+            RANK · ROLL · REPEAT
+          </span>
+        </span>
       </Link>
 
       <nav style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: "var(--f-mono)", flexWrap: "wrap" }}>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <filter id="g" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- terminal frame -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="2" fill="#131512" stroke="#5e6f1e"/>
+  <!-- scanline texture -->
+  <rect x="1" y="3"  width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="7"  width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="11" width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="15" width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="19" width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="23" width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <rect x="1" y="27" width="30" height="1" fill="#ffffff" opacity="0.04"/>
+  <!-- corner ticks -->
+  <path d="M2 2h3M2 2v3" stroke="#caf03c" stroke-width="0.8" fill="none"/>
+  <path d="M30 2h-3M30 2v3" stroke="#caf03c" stroke-width="0.8" fill="none"/>
+  <path d="M2 30h3M2 30v-3" stroke="#caf03c" stroke-width="0.8" fill="none"/>
+  <path d="M30 30h-3M30 30v-3" stroke="#caf03c" stroke-width="0.8" fill="none"/>
+  <!-- $C glyph in LED phosphor green -->
+  <text x="16" y="23" text-anchor="middle"
+        font-family="VT323, 'Courier New', ui-monospace, monospace"
+        font-size="20" font-weight="700"
+        fill="#caf03c" filter="url(#g)">$C</text>
+</svg>
