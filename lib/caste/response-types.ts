@@ -70,6 +70,20 @@ export interface MegaSettlementRow {
   txHash: Hex;
 }
 
+export interface TradeRow {
+  id: string;
+  kind: "buy" | "sell";
+  sender: Hex;
+  usdcAmount: string;
+  casteAmount: string;
+  sqrtPriceX96: string;
+  tick: number;
+  blockNumber: string;
+  blockTime: string;
+  txHash: Hex;
+  logIndex: number;
+}
+
 export interface SellTaxRow {
   id: string;
   seller: Hex;

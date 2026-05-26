@@ -1,11 +1,34 @@
 "use client";
 
 import { ConnectKitButton } from "connectkit";
+import { useBalance } from "wagmi";
 
-export function ConnectButton({ balance = "$12,408" }: { balance?: string }) {
+import { addresses } from "@/lib/caste/contracts";
+import { activeChainId } from "@/lib/wagmi";
+
+// USDC is 6 decimals. Render as whole dollars with grouping, no decimals.
+function formatUsdcShort(wei: bigint): string {
+  const whole = wei / 1_000_000n;
+  return `$${whole.toLocaleString()}`;
+}
+
+function UsdcBalance({ address }: { address: `0x${string}` }) {
+  const { data } = useBalance({
+    address,
+    token: addresses.usdc,
+    chainId: activeChainId,
+  });
+  return (
+    <span className="led" style={{ fontSize: 16, color: "var(--bone)" }}>
+      {data ? formatUsdcShort(data.value) : "—"}
+    </span>
+  );
+}
+
+export function ConnectButton() {
   return (
     <ConnectKitButton.Custom>
-      {({ isConnected, show, truncatedAddress, ensName }) => {
+      {({ isConnected, show, truncatedAddress, ensName, address }) => {
         if (!isConnected) {
           return (
             <button
@@ -84,9 +107,13 @@ export function ConnectButton({ balance = "$12,408" }: { balance?: string }) {
               >
                 USDC
               </span>
-              <span className="led" style={{ fontSize: 16, color: "var(--bone)" }}>
-                {balance}
-              </span>
+              {address ? (
+                <UsdcBalance address={address} />
+              ) : (
+                <span className="led" style={{ fontSize: 16, color: "var(--bone)" }}>
+                  —
+                </span>
+              )}
             </span>
           </button>
         );

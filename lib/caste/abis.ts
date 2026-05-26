@@ -55,6 +55,13 @@ export const casteHookAbi = [
   },
   {
     type: "function",
+    name: "flipBatch",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "tokenIds", type: "uint256[]" }],
+    outputs: [],
+  },
+  {
+    type: "function",
     name: "settleHourly",
     stateMutability: "nonpayable",
     inputs: [{ name: "epoch", type: "uint256" }],
@@ -101,6 +108,20 @@ export const casteHookAbi = [
     stateMutability: "view",
     inputs: [{ name: "epoch", type: "uint256" }],
     outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "hourlyPool",
+    stateMutability: "view",
+    inputs: [{ name: "epoch", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "megaPool",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;
 

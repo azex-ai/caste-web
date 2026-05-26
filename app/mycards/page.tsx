@@ -6,11 +6,16 @@ import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { SealedCard } from "@/components/caste/sealed-card";
 import { CasteCard } from "@/components/caste/caste-card";
 import { useStats, useUserCards } from "@/lib/caste/hooks";
+import { useFlipBatch, useFlipCard } from "@/lib/caste/writes";
 import type { CardData } from "@/lib/caste/types";
 import type { CardRow } from "@/lib/caste/response-types";
 
 const ONE_E18 = 10n ** 18n;
 const FLIP_DELAY_BLOCKS = 2;
+// Mirrors `Constants.MAX_FLIP_BATCH` in contracts — the hook rejects batches
+// larger than this. Slicing at the UI layer keeps the revert path off the
+// happy flow.
+const MAX_FLIP_BATCH = 50;
 
 function fmtCaste(n: number) {
   return n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : Math.round(n).toLocaleString();
@@ -40,12 +45,29 @@ export default function MyCardsPage() {
   const { data: stats } = useStats();
   const { data: cards = [] } = useUserCards(address);
   const { data: currentBlock } = useBlockNumber({ watch: true });
+  const flipMutation = useFlipCard();
+  const flipBatchMutation = useFlipBatch();
 
   const sealed = cards.filter((c) => !c.flipped);
   const flipped = cards.filter((c) => c.flipped);
-  const flippable = currentBlock
-    ? sealed.filter((c) => currentBlock > BigInt(c.commitBlock) + BigInt(FLIP_DELAY_BLOCKS)).length
-    : 0;
+  const flippableCards = currentBlock
+    ? sealed.filter((c) => currentBlock > BigInt(c.commitBlock) + BigInt(FLIP_DELAY_BLOCKS))
+    : [];
+  // Cap the batch at the contract-enforced max so we never submit a tx that
+  // would revert on length check. If the user has more flippable cards than
+  // this, the rest stay queued for the next click.
+  const batchCards = flippableCards.slice(0, MAX_FLIP_BATCH);
+  const flippable = flippableCards.length;
+  const batchSize = batchCards.length;
+  const batchTruncated = flippable > MAX_FLIP_BATCH;
+
+  const handleBatchFlip = () => {
+    if (batchCards.length === 0) return;
+    flipBatchMutation.mutate({
+      tokenIds: batchCards.map((c) => BigInt(c.tokenId)),
+    });
+  };
+  const batchPending = flipBatchMutation.isPending;
   const nowSec = Math.floor(Date.now() / 1000);
 
   const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
@@ -82,27 +104,36 @@ export default function MyCardsPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em" }}>BATCH ACTION</div>
           <button
-            disabled={!address || flippable === 0}
+            disabled={!address || batchSize === 0 || batchPending}
+            onClick={handleBatchFlip}
+            title={batchTruncated ? `Capped at ${MAX_FLIP_BATCH}/batch — click again to flip the rest` : undefined}
             style={{
               padding: "18px 28px",
-              background: flippable > 0 ? "var(--acid)" : "var(--ink-300)",
-              color: flippable > 0 ? "var(--ink-000)" : "var(--ink-600)",
+              background: batchSize > 0 && !batchPending ? "var(--acid)" : "var(--ink-300)",
+              color: batchSize > 0 && !batchPending ? "var(--ink-000)" : "var(--ink-600)",
               fontFamily: "var(--f-display)",
               fontSize: 16,
               letterSpacing: "0.18em",
               border: "none",
               borderRadius: 4,
-              boxShadow: flippable > 0 ? "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)" : "none",
+              boxShadow:
+                batchSize > 0 && !batchPending
+                  ? "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.35)"
+                  : "none",
               display: "flex",
               alignItems: "center",
               gap: 10,
-              cursor: flippable > 0 ? "pointer" : "not-allowed",
+              cursor: batchSize > 0 && !batchPending ? "pointer" : "not-allowed",
             }}
           >
-            ▸ FLIP {flippable} CARDS
+            {batchPending ? "FLIPPING…" : `▸ FLIP ${batchSize} CARDS`}
           </button>
           <span className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            {flippable > 0 ? `est. gas ~${flippable * 120}k · multi-call` : "no flippable cards yet"}
+            {batchSize > 0
+              ? batchTruncated
+                ? `est. gas ~${batchSize * 120}k · ${flippable - batchSize} more after this`
+                : `est. gas ~${batchSize * 120}k · single tx`
+              : "no flippable cards yet"}
           </span>
         </div>
       </section>
@@ -138,7 +169,8 @@ export default function MyCardsPage() {
                 commitBlock={Number(c.commitBlock)}
                 buyUnits={1}
                 bought={`${buyAgo} ago`}
-                canFlip={canFlip}
+                canFlip={canFlip && !flipMutation.isPending}
+                onFlip={() => flipMutation.mutate({ tokenId: BigInt(c.tokenId) })}
                 w={280}
                 h={400}
               />

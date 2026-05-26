@@ -1,5 +1,7 @@
 "use client";
 
+import { useAccount } from "wagmi";
+
 import { useHourlyEpochs, useMegaSettlements, useStats } from "@/lib/caste/hooks";
 import { useSettleHourly, useSettleMega } from "@/lib/caste/writes";
 
@@ -16,6 +18,7 @@ function bigToNum(s: string): number {
 
 export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) {
   const isHourly = kind === "hourly";
+  const { isConnected } = useAccount();
   const { data: hourly = [] } = useHourlyEpochs(20);
   const { data: mega = [] } = useMegaSettlements();
   const { data: stats } = useStats();
@@ -138,41 +141,61 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
         <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
           {isHourly ? (
             <button
-              disabled={settleHourly.isPending}
+              disabled={!isConnected || settleHourly.isPending}
               onClick={() => settleHourly.mutate({ epoch: settleableEpoch })}
+              title={!isConnected ? "Connect wallet to settle" : ""}
               style={{
                 padding: "14px 28px",
-                background: settleHourly.isPending ? "var(--ink-300)" : tone,
-                color: settleHourly.isPending ? "var(--ink-600)" : "var(--ink-000)",
+                background: !isConnected || settleHourly.isPending ? "var(--ink-300)" : tone,
+                color: !isConnected || settleHourly.isPending ? "var(--ink-600)" : "var(--ink-000)",
                 fontFamily: "var(--f-display)",
                 fontSize: 14,
                 letterSpacing: "0.15em",
                 border: "none",
                 borderRadius: 4,
-                cursor: settleHourly.isPending ? "not-allowed" : "pointer",
-                boxShadow: settleHourly.isPending ? "none" : `0 6px 0 ${toneSoft}`,
+                cursor: !isConnected || settleHourly.isPending ? "not-allowed" : "pointer",
+                boxShadow: !isConnected || settleHourly.isPending ? "none" : `0 6px 0 ${toneSoft}`,
               }}
             >
-              {settleHourly.isPending ? "SETTLING…" : `▸ settleHourly(${settleableEpoch})`}
+              {!isConnected
+                ? "CONNECT WALLET TO SETTLE"
+                : settleHourly.isPending
+                ? "SETTLING…"
+                : `▸ settleHourly(${settleableEpoch})`}
             </button>
           ) : (
             <button
-              disabled={!canSettleMega || settleMega.isPending}
+              disabled={!isConnected || !canSettleMega || settleMega.isPending}
               onClick={() => settleMega.mutate()}
+              title={!isConnected ? "Connect wallet to settle" : ""}
               style={{
                 padding: "14px 28px",
-                background: !canSettleMega || settleMega.isPending ? "var(--ink-300)" : tone,
-                color: !canSettleMega || settleMega.isPending ? "var(--ink-600)" : "var(--ink-000)",
+                background:
+                  !isConnected || !canSettleMega || settleMega.isPending ? "var(--ink-300)" : tone,
+                color:
+                  !isConnected || !canSettleMega || settleMega.isPending
+                    ? "var(--ink-600)"
+                    : "var(--ink-000)",
                 fontFamily: "var(--f-display)",
                 fontSize: 14,
                 letterSpacing: "0.15em",
                 border: "none",
                 borderRadius: 4,
-                cursor: !canSettleMega || settleMega.isPending ? "not-allowed" : "pointer",
-                boxShadow: !canSettleMega || settleMega.isPending ? "none" : `0 6px 0 ${toneSoft}`,
+                cursor:
+                  !isConnected || !canSettleMega || settleMega.isPending ? "not-allowed" : "pointer",
+                boxShadow:
+                  !isConnected || !canSettleMega || settleMega.isPending
+                    ? "none"
+                    : `0 6px 0 ${toneSoft}`,
               }}
             >
-              {settleMega.isPending ? "SETTLING…" : canSettleMega ? "▸ settleMega()" : "FOMO NOT EXPIRED"}
+              {!isConnected
+                ? "CONNECT WALLET TO SETTLE"
+                : settleMega.isPending
+                ? "SETTLING…"
+                : canSettleMega
+                ? "▸ settleMega()"
+                : "FOMO NOT EXPIRED"}
             </button>
           )}
           {(isHourly ? settleHourly : settleMega).isError && (

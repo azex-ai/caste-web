@@ -1,6 +1,7 @@
 "use client";
 
 import { TIERS, VARIANTS, SIGNATURES, TRAITS, FLIP_DEMO } from "@/lib/caste/mock";
+import { useFlipCard } from "@/lib/caste/writes";
 import { TierBadge } from "./tier-badge";
 import { SealedCard } from "./sealed-card";
 import { CasteCard } from "./caste-card";
@@ -21,6 +22,7 @@ export function FlipModal({
   h?: number | string;
   onClose?: () => void;
 }) {
+  const flipMutation = useFlipCard();
   return (
     <div
       style={{
@@ -85,7 +87,14 @@ export function FlipModal({
         </span>
       </div>
 
-      {stage === "confirm" && <ConfirmStage demo={demo} />}
+      {stage === "confirm" && (
+        <ConfirmStage
+          demo={demo}
+          onConfirm={() => flipMutation.mutate({ tokenId: BigInt(demo.sealed.tokenId) })}
+          onCancel={onClose}
+          isPending={flipMutation.isPending}
+        />
+      )}
       {stage === "signing" && <SigningStage demo={demo} />}
       {stage === "flipping" && <FlippingStage />}
       {stage === "revealed" && <RevealedStage demo={demo} />}
@@ -112,7 +121,17 @@ function Hint({ label, value, sub, tone = "neutral" }: { label: string; value: s
   );
 }
 
-function ConfirmStage({ demo }: { demo: FlipDemo }) {
+function ConfirmStage({
+  demo,
+  onConfirm,
+  onCancel,
+  isPending,
+}: {
+  demo: FlipDemo;
+  onConfirm: () => void;
+  onCancel?: () => void;
+  isPending: boolean;
+}) {
   return (
     <div
       style={{
@@ -155,22 +174,28 @@ function ConfirmStage({ demo }: { demo: FlipDemo }) {
 
         <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
           <button
+            onClick={onConfirm}
+            disabled={isPending}
             style={{
               padding: "16px 28px",
-              background: "var(--acid)",
-              color: "var(--ink-000)",
+              background: isPending ? "var(--ink-300)" : "var(--acid)",
+              color: isPending ? "var(--ink-600)" : "var(--ink-000)",
               fontFamily: "var(--f-display)",
               fontSize: 15,
               letterSpacing: "0.18em",
               border: "none",
               borderRadius: 4,
-              boxShadow: "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.4)",
-              cursor: "pointer",
+              boxShadow: isPending
+                ? "none"
+                : "0 6px 0 var(--acid-lo), 0 16px 32px oklch(0.90 0.20 115 / 0.4)",
+              cursor: isPending ? "not-allowed" : "pointer",
             }}
           >
-            ▸ FLIP IT
+            {isPending ? "FLIPPING…" : "▸ FLIP IT"}
           </button>
           <button
+            onClick={onCancel}
+            disabled={isPending}
             style={{
               padding: "16px 28px",
               background: "transparent",
@@ -180,7 +205,8 @@ function ConfirmStage({ demo }: { demo: FlipDemo }) {
               letterSpacing: "0.2em",
               border: "1px solid var(--ink-500)",
               borderRadius: 4,
-              cursor: "pointer",
+              cursor: isPending ? "not-allowed" : "pointer",
+              opacity: isPending ? 0.5 : 1,
             }}
           >
             CANCEL

@@ -2,10 +2,13 @@ import "./globals.css";
 import "./caste-tokens.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getLocale } from "next-intl/server";
 import { CasteProviders } from "./providers";
-import { PhaseBanner } from "@/components/caste/phase-banner";
+import { LivePhaseBanner } from "@/components/caste/live-phase-banner";
+import { WrongNetworkBanner } from "@/components/caste/wrong-network-banner";
+import { MetaMismatchBanner } from "@/components/caste/meta-mismatch-banner";
 import { CasteNav } from "@/components/caste/caste-nav";
-import { PHASE_STATE } from "@/lib/caste/mock";
 
 export const metadata: Metadata = {
   title: "$CASTE — flip-card meme protocol",
@@ -40,26 +43,23 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body>
-        <CasteProviders>
-          <div className="caste-root">
-            <PhaseBanner
-              phase={PHASE_STATE.isPhaseA ? "A" : "B"}
-              cardsMinted={PHASE_STATE.cardsMinted}
-              cardsCap={PHASE_STATE.cardsCap}
-              sellTax={
-                PHASE_STATE.isPhaseA
-                  ? PHASE_STATE.phaseASellTax
-                  : PHASE_STATE.phaseBSellTax
-              }
-            />
-            <CasteNav />
-            {children}
-          </div>
-        </CasteProviders>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <CasteProviders>
+            <div className="caste-root">
+              <WrongNetworkBanner />
+              <MetaMismatchBanner />
+              <LivePhaseBanner />
+              <CasteNav />
+              {children}
+            </div>
+          </CasteProviders>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

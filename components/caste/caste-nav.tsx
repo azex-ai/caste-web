@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ConnectButton } from "./connect-button";
+import { LocaleSwitcher } from "./locale-switcher";
 
 const NAV_ITEMS = [
   { href: "/",             label: "/home" },
@@ -19,6 +21,7 @@ const NAV_ITEMS = [
 
 export function CasteNav() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   return (
     <header
       style={{
@@ -33,7 +36,7 @@ export function CasteNav() {
         gap: 14,
       }}
     >
-      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }} aria-label="$CASTE — home">
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }} aria-label={t("ariaHome")}>
         <span
           aria-hidden
           style={{
@@ -88,7 +91,7 @@ export function CasteNav() {
             $CASTE
           </span>
           <span className="mono" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--acid-lo)", marginTop: 4 }}>
-            RANK · ROLL · REPEAT
+            {t("logoTagline")}
           </span>
         </span>
       </Link>
@@ -117,7 +120,10 @@ export function CasteNav() {
         })}
       </nav>
 
-      <ConnectButton />
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <LocaleSwitcher />
+        <ConnectButton />
+      </div>
     </header>
   );
 }

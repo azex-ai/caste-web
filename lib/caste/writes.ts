@@ -11,7 +11,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useConfig, usePublicClient } from "wagmi";
+import { useAccount, useConfig, useReadContract } from "wagmi";
 import {
   readContract,
   waitForTransactionReceipt,
@@ -31,6 +31,7 @@ import {
   addresses,
   poolKey,
 } from "./contracts";
+import { activeChainId } from "@/lib/wagmi";
 
 const MAX_UINT256 = (1n << 256n) - 1n;
 
@@ -38,6 +39,7 @@ export const txKeys = {
   buy: ["caste-tx", "buy"] as const,
   sell: ["caste-tx", "sell"] as const,
   flip: ["caste-tx", "flip"] as const,
+  flipBatch: ["caste-tx", "flip-batch"] as const,
   settleHourly: ["caste-tx", "settle-hourly"] as const,
   settleMega: ["caste-tx", "settle-mega"] as const,
 };
@@ -59,6 +61,7 @@ async function ensureAllowance(
     abi: erc20Abi,
     functionName: "allowance",
     args: [owner, spender],
+    chainId: activeChainId,
   })) as bigint;
   if (current >= needed) return;
   const hash = (await writeContract(config, {
@@ -66,8 +69,9 @@ async function ensureAllowance(
     abi: erc20Abi,
     functionName: "approve",
     args: [spender, MAX_UINT256],
+    chainId: activeChainId,
   })) as Hash;
-  await waitForTransactionReceipt(config, { hash });
+  await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
 }
 
 export function useBuyCaste() {
@@ -91,8 +95,9 @@ export function useBuyCaste() {
           { takeClaims: false, settleUsingBurn: false },
           encodeHookData(address),
         ],
+        chainId: activeChainId,
       })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
     },
     onSuccess: () => {
@@ -121,8 +126,9 @@ export function useSellCaste() {
           { takeClaims: false, settleUsingBurn: false },
           encodeHookData(address),
         ],
+        chainId: activeChainId,
       })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
     },
     onSuccess: () => {
@@ -143,8 +149,32 @@ export function useFlipCard() {
         abi: casteHookAbi,
         functionName: "flipCard",
         args: [id],
+        chainId: activeChainId,
       })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
+      return { hash, blockNumber: receipt.blockNumber };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["caste"] });
+    },
+  });
+}
+
+export function useFlipBatch() {
+  const config = useConfig();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: txKeys.flipBatch,
+    mutationFn: async ({ tokenIds }: { tokenIds: bigint[] }) => {
+      if (tokenIds.length === 0) throw new Error("no tokenIds provided");
+      const hash = (await writeContract(config, {
+        address: addresses.hook,
+        abi: casteHookAbi,
+        functionName: "flipBatch",
+        args: [tokenIds],
+        chainId: activeChainId,
+      })) as Hash;
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
     },
     onSuccess: () => {
@@ -165,8 +195,9 @@ export function useSettleHourly() {
         abi: casteHookAbi,
         functionName: "settleHourly",
         args: [e],
+        chainId: activeChainId,
       })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
     },
     onSuccess: () => {
@@ -186,8 +217,9 @@ export function useSettleMega() {
         abi: casteHookAbi,
         functionName: "settleMega",
         args: [],
+        chainId: activeChainId,
       })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
     },
     onSuccess: () => {
@@ -197,18 +229,20 @@ export function useSettleMega() {
 }
 
 // Read helper — current USDC balance for the connected account.
+// Auto-refetches every 10s so balance stays in sync after buys/sells without a
+// manual `mutate()` poke from callers.
 export function useUsdcBalance() {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
-  return useMutation({
-    mutationFn: async () => {
-      if (!address || !publicClient) return 0n;
-      return (await publicClient.readContract({
-        address: addresses.usdc,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [address],
-      })) as bigint;
+  return useReadContract({
+    address: addresses.usdc,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    chainId: activeChainId,
+    query: {
+      enabled: !!address,
+      refetchInterval: 10_000,
+      staleTime: 0,
     },
   });
 }

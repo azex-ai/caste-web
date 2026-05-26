@@ -1,22 +1,89 @@
 "use client";
 
-import { Fragment } from "react";
-import { useAccount } from "wagmi";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useAccount, useReadContract } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
 
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
-import { ME_V1 } from "@/lib/caste/mock";
-import { useStats } from "@/lib/caste/hooks";
+import { useStats, useSellTaxEvents, castePriceUsdc } from "@/lib/caste/hooks";
 import { useSellCaste } from "@/lib/caste/writes";
+import { erc20Abi } from "@/lib/caste/abis";
+import { addresses } from "@/lib/caste/contracts";
+import { useIsMounted } from "@/lib/use-is-mounted";
 
-const ONE_E18 = 10n ** 18n;
+function useCasteBalance() {
+  const { address } = useAccount();
+  return useReadContract({
+    address: addresses.token,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address, refetchInterval: 10_000 },
+  });
+}
 
-const PRICE_CASTE = 0.0000476;
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
+// Convert a fractional CASTE balance to a display-safe Number.
+// Bigint → Number conversion loses precision above 2^53; for sub-21B supply
+// we're comfortably below that, but we still do the cast via formatUnits so
+// the fractional part survives instead of getting integer-divided away.
+function weiToNumber(wei: bigint): number {
+  return Number(formatUnits(wei, 18));
+}
+
 export default function SellV1Page() {
+  const mounted = useIsMounted();
   const { data: stats } = useStats();
-  const sellAmount = 14200;
+  const { address: rawAddress } = useAccount();
+  // Gate wallet state behind mount — SSR has no wallet; first client paint
+  // must match before useEffect runs.
+  const address = mounted ? rawAddress : undefined;
+  const { data: casteBalWei } = useCasteBalance();
+  const casteBalWeiVal: bigint = casteBalWei ?? 0n;
+  const casteBalance = weiToNumber(casteBalWeiVal);
+  const hasBalance = casteBalWeiVal > 0n;
+
+  // Price = USDC per CASTE, derived from last observed sqrtPriceX96 on the pool.
+  // Falls back to 0 while loading / before the first swap is indexed — display
+  // code suppresses dollar amounts when PRICE_CASTE === 0.
+  // NB: cast through `unknown` because response-types.ts (owned by another
+  // agent) may not yet declare `sqrtPriceX96Last` on StatsResponse.
+  const sqrtRaw = (stats as unknown as { sqrtPriceX96Last?: string | null } | undefined)
+    ?.sqrtPriceX96Last;
+  const PRICE_CASTE = sqrtRaw ? castePriceUsdc(BigInt(sqrtRaw)) : 0;
+  const priceKnown = PRICE_CASTE > 0;
+
+  // Track user-chosen sell amount as BOTH a display number (UI math, slider,
+  // input) and the exact wei bigint (what we submit to the contract). On user
+  // input the wei is recomputed via parseUnits; on a MAX click we copy the
+  // raw balance wei directly so no fractional CASTE is lost in the roundtrip.
+  const [sellAmount, setSellAmount] = useState<number>(0);
+  const [sellAmountWei, setSellAmountWei] = useState<bigint>(0n);
+  useEffect(() => {
+    // Default to full balance on mount/balance change.
+    setSellAmount(Math.floor(casteBalance));
+    setSellAmountWei(casteBalWeiVal);
+  }, [casteBalWeiVal, casteBalance]);
+
+  // Setter used by SellComposer presets — for MAX we want the exact wei,
+  // for other presets we recompute wei from the integer target.
+  const setAmount = useCallback(
+    (target: number, exactWei?: bigint) => {
+      setSellAmount(target);
+      if (exactWei !== undefined) {
+        setSellAmountWei(exactWei);
+      } else {
+        // parseUnits rejects negatives / NaN; clamp first.
+        const safe = Number.isFinite(target) && target >= 0 ? target : 0;
+        setSellAmountWei(parseUnits(safe.toString(), 18));
+      }
+    },
+    [],
+  );
+
   const cardsMinted = stats?.cardsMinted ?? 0;
   const fomoLeft = stats?.fomoSecondsLeft ?? 0;
   const fomoHh = Math.floor(fomoLeft / 3600).toString().padStart(2, "0");
@@ -51,52 +118,91 @@ export default function SellV1Page() {
         </div>
         <div style={{ textAlign: "right" }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em", marginBottom: 4 }}>YOUR BALANCE</div>
-          <div className="led" style={{ fontSize: 26, color: "var(--bone)" }}>{fmtNum(ME_V1.casteBalance)}</div>
+          <div className="led" style={{ fontSize: 26, color: "var(--bone)" }}>{fmtNum(casteBalance)}</div>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>
-            ≈ ${fmt(ME_V1.casteBalance * PRICE_CASTE)} · @ ${PRICE_CASTE.toFixed(7)}
+            {priceKnown
+              ? `≈ $${fmt(casteBalance * PRICE_CASTE)} · @ $${PRICE_CASTE.toFixed(7)}`
+              : "≈ — · price loading"}
           </div>
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
-        <SellComposer amount={sellAmount} phase="A" cardsMinted={cardsMinted} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <FeeFlow amount={sellAmount} phase="A" />
-          <PhaseCompare />
-          <RecentSells phase="A" />
-        </div>
-      </section>
-
-      <section style={{ padding: "32px 60px 60px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 18 }}>
-          <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--jade)" }}>
-            ● FUTURE STATE · WHEN ALL 10K MINT
-          </span>
-          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
-          <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-            tax 25% → 1.5% · automatic · irreversible
-          </span>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
-          <SellComposer amount={sellAmount} phase="B" cardsMinted={cardsMinted} />
+      {!address ? (
+        <EmptyState
+          headline="Connect wallet to view your $CASTE position"
+          hint="Sell mechanics depend on your on-chain balance."
+        />
+      ) : !hasBalance ? (
+        <EmptyState
+          headline="You have no $CASTE to sell yet"
+          hint="Buy at least 1 unit first — every $6.66666 unit also mints a sealed card."
+          ctaHref="/swap"
+          ctaLabel="→ BUY $CASTE"
+        />
+      ) : (
+        <section style={{ padding: "20px 60px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
+          <SellComposer
+            amount={sellAmount}
+            amountWei={sellAmountWei}
+            onAmountChange={setAmount}
+            casteBalWei={casteBalWeiVal}
+            phase="A"
+            cardsMinted={cardsMinted}
+            casteBalance={casteBalance}
+            priceCaste={PRICE_CASTE}
+            priceKnown={priceKnown}
+          />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ position: "relative", padding: 22, border: "1px solid var(--jade)", borderRadius: 6, background: "linear-gradient(135deg, oklch(0.20 0.10 155 / 0.3), var(--ink-200))", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--jade), oklch(0.65 0.12 145), var(--jade))" }} />
-              <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em", marginBottom: 10 }}>
-                ★ PHASE B UNLOCK · ANIMATED CONFETTI MOMENT
-              </div>
-              <div className="display" style={{ fontSize: 28, color: "var(--bone)", lineHeight: 1.05 }}>📈 Free Trading Mode</div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)", marginTop: 10, lineHeight: 1.7 }}>
-                When the 10,000th card is minted in some random user&apos;s buy, the contract flips. Their tx becomes a community milestone — UI plays a global celebration, banner turns green, FOMO countdown resets to a fresh 24h.
-              </div>
-            </div>
-
-            <FeeFlow amount={sellAmount} phase="B" />
-            <RecentSells phase="B" />
+            <FeeFlow amount={sellAmount} phase="A" priceCaste={PRICE_CASTE} priceKnown={priceKnown} />
+            <PhaseCompare />
+            <RecentSells phase="A" />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {hasBalance && (
+        <section style={{ padding: "32px 60px 60px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 18 }}>
+            <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--jade)" }}>
+              ● FUTURE STATE · WHEN ALL 10K MINT
+            </span>
+            <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+            <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
+              tax 25% → 1.5% · automatic · irreversible
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
+            <SellComposer
+              amount={sellAmount}
+              amountWei={sellAmountWei}
+              onAmountChange={setAmount}
+              casteBalWei={casteBalWeiVal}
+              phase="B"
+              cardsMinted={cardsMinted}
+              casteBalance={casteBalance}
+              priceCaste={PRICE_CASTE}
+              priceKnown={priceKnown}
+              readOnly
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ position: "relative", padding: 22, border: "1px solid var(--jade)", borderRadius: 6, background: "linear-gradient(135deg, oklch(0.20 0.10 155 / 0.3), var(--ink-200))", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--jade), oklch(0.65 0.12 145), var(--jade))" }} />
+                <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em", marginBottom: 10 }}>
+                  ★ PHASE B UNLOCK · ANIMATED CONFETTI MOMENT
+                </div>
+                <div className="display" style={{ fontSize: 28, color: "var(--bone)", lineHeight: 1.05 }}>Free Trading Mode</div>
+                <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)", marginTop: 10, lineHeight: 1.7 }}>
+                  When the 10,000th card is minted in some random user&apos;s buy, the contract flips. Their tx becomes a community milestone — UI plays a global celebration, banner turns green, FOMO countdown resets to a fresh 24h.
+                </div>
+              </div>
+
+              <FeeFlow amount={sellAmount} phase="B" priceCaste={PRICE_CASTE} priceKnown={priceKnown} />
+              <RecentSells phase="B" />
+            </div>
+          </div>
+        </section>
+      )}
 
       <Footer />
     </div>
@@ -105,10 +211,61 @@ export default function SellV1Page() {
 
 type Phase = "A" | "B";
 
-function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: Phase; cardsMinted: number }) {
+function EmptyState({ headline, hint, ctaHref, ctaLabel }: { headline: string; hint: string; ctaHref?: string; ctaLabel?: string }) {
+  return (
+    <section style={{ padding: "60px 60px 40px" }}>
+      <div style={{ padding: 36, border: "1px dashed var(--ink-400)", borderRadius: 8, background: "var(--ink-200)", textAlign: "center" }}>
+        <div className="display" style={{ fontSize: 28, color: "var(--bone)", marginBottom: 8 }}>{headline}</div>
+        <div className="mono" style={{ fontSize: 12, color: "var(--ink-700)", letterSpacing: "0.05em", marginBottom: ctaHref ? 22 : 0 }}>{hint}</div>
+        {ctaHref && ctaLabel && (
+          <Link
+            href={ctaHref}
+            style={{
+              display: "inline-block",
+              padding: "14px 28px",
+              background: "var(--acid)",
+              color: "var(--ink-000)",
+              fontFamily: "var(--f-display)",
+              fontSize: 15,
+              letterSpacing: "0.12em",
+              textDecoration: "none",
+              borderRadius: 4,
+              boxShadow: "0 5px 0 var(--acid-lo)",
+            }}
+          >
+            {ctaLabel}
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SellComposer({
+  amount,
+  amountWei,
+  onAmountChange,
+  casteBalWei,
+  phase,
+  cardsMinted,
+  casteBalance,
+  priceCaste,
+  priceKnown,
+  readOnly = false,
+}: {
+  amount: number;
+  amountWei: bigint;
+  onAmountChange: (n: number, exactWei?: bigint) => void;
+  casteBalWei: bigint;
+  phase: Phase;
+  cardsMinted: number;
+  casteBalance: number;
+  priceCaste: number;
+  priceKnown: boolean;
+  readOnly?: boolean;
+}) {
   const { address } = useAccount();
-  const sell = useSellCaste();
-  const usdcGross = amount * PRICE_CASTE;
+  const usdcGross = amount * priceCaste;
   const taxPct = phase === "A" ? 25 : 1.5;
   const hourlyPct = phase === "A" ? 16.67 : 1.0;
   const megaPct = phase === "A" ? 8.33 : 0.5;
@@ -165,7 +322,7 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span className="display" style={{ fontSize: 22, color: "var(--bone)" }}>Sell $CASTE</span>
-        <span className="chip">CASTE PRICE · ${PRICE_CASTE.toFixed(7)}</span>
+        <span className="chip">CASTE PRICE · {priceKnown ? `$${priceCaste.toFixed(7)}` : "—"}</span>
       </div>
 
       <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, padding: "16px 18px", background: "var(--ink-100)" }}>
@@ -180,29 +337,50 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-          <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>≈ ${fmt(usdcGross)} gross</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>balance {fmtNum(ME_V1.casteBalance)}</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>{priceKnown ? `≈ $${fmt(usdcGross)} gross` : "≈ — gross"}</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>balance {fmtNum(casteBalance)}</span>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-          {["25%", "50%", "75%", "MAX"].map((p, i) => (
-            <button
-              key={i}
-              style={{
-                flex: 1,
-                padding: "8px 0",
-                background: i === 2 ? "var(--ink-100)" : "var(--ink-300)",
-                color: i === 2 ? accent : "var(--ink-700)",
-                border: `1px solid ${i === 2 ? accent : "var(--ink-400)"}`,
-                fontFamily: "var(--f-mono)",
-                fontSize: 11,
-                letterSpacing: "0.1em",
-                borderRadius: 3,
-                cursor: "pointer",
-              }}
-            >
-              {p}
-            </button>
-          ))}
+          {[
+            { label: "25%", pct: 25 },
+            { label: "50%", pct: 50 },
+            { label: "75%", pct: 75 },
+            { label: "MAX", pct: 100 },
+          ].map((p) => {
+            // For MAX, copy the exact wei balance so no fractional CASTE is
+            // lost in the number roundtrip. Other presets compute as integer
+            // CASTE since the slider lives in number-space.
+            const isMax = p.pct === 100;
+            const targetWei = isMax
+              ? casteBalWei
+              : (casteBalWei * BigInt(p.pct)) / 100n;
+            const target = isMax
+              ? Math.floor(casteBalance)
+              : Math.floor((casteBalance * p.pct) / 100);
+            const active = amount === target && target > 0;
+            return (
+              <button
+                key={p.label}
+                onClick={() => onAmountChange(target, targetWei)}
+                disabled={casteBalWei === 0n}
+                style={{
+                  flex: 1,
+                  padding: "8px 0",
+                  background: active ? "var(--ink-100)" : "var(--ink-300)",
+                  color: active ? accent : "var(--ink-700)",
+                  border: `1px solid ${active ? accent : "var(--ink-400)"}`,
+                  fontFamily: "var(--f-mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.1em",
+                  borderRadius: 3,
+                  cursor: casteBalWei === 0n ? "not-allowed" : "pointer",
+                  opacity: casteBalWei === 0n ? 0.4 : 1,
+                }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -215,7 +393,7 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
           YOU RECEIVE · USDC after {taxPct}% tax
         </div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 6 }}>
-          <div className="led" style={{ fontSize: 48, color: accent }}>${fmt(usdcNet)}</div>
+          <div className="led" style={{ fontSize: 48, color: accent }}>{priceKnown ? `$${fmt(usdcNet)}` : "—"}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: "1px solid var(--ink-400)", borderRadius: 999 }}>
             <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--cobalt)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--bone)", fontSize: 10, fontWeight: 700 }}>$</div>
             <span className="mono" style={{ fontSize: 12, color: "var(--bone)" }}>USDC</span>
@@ -224,15 +402,15 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
         <div style={{ marginTop: 12, padding: "10px 0", borderTop: "1px dotted var(--ink-400)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
           <div>
             <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.15em" }}>GROSS</div>
-            <div className="mono" style={{ fontSize: 12, color: "var(--bone-dim)" }}>${fmt(usdcGross)}</div>
+            <div className="mono" style={{ fontSize: 12, color: "var(--bone-dim)" }}>{priceKnown ? `$${fmt(usdcGross)}` : "—"}</div>
           </div>
           <div>
             <div className="mono" style={{ fontSize: 9, color: "var(--jade)", letterSpacing: "0.15em" }}>−{hourlyPct}% HOURLY</div>
-            <div className="mono" style={{ fontSize: 12, color: "var(--jade)" }}>−${fmt(toHourly)}</div>
+            <div className="mono" style={{ fontSize: 12, color: "var(--jade)" }}>{priceKnown ? `−$${fmt(toHourly)}` : "—"}</div>
           </div>
           <div>
             <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.15em" }}>−{megaPct}% MEGA</div>
-            <div className="mono" style={{ fontSize: 12, color: "var(--gold-hi)" }}>−${fmt(toMega)}</div>
+            <div className="mono" style={{ fontSize: 12, color: "var(--gold-hi)" }}>{priceKnown ? `−$${fmt(toMega)}` : "—"}</div>
           </div>
         </div>
       </div>
@@ -240,9 +418,9 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
       {phase === "A" && (
         <div style={{ padding: "12px 14px", background: "oklch(0.18 0.10 60 / 0.35)", border: "1px dashed var(--gold-hi)", borderRadius: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="display" style={{ fontSize: 13, color: "var(--gold-hi)", letterSpacing: "0.18em" }}>⏳ WAIT FOR PHASE B?</span>
+            <span className="display" style={{ fontSize: 13, color: "var(--gold-hi)", letterSpacing: "0.18em" }}>▸ WAIT FOR PHASE B?</span>
             <span className="mono" style={{ fontSize: 10, color: "var(--bone)" }}>
-              You&apos;d save <span className="led" style={{ color: "var(--gold-hi)" }}>${fmt(usdcGross * 0.235)}</span> ({(taxPct - 1.5).toFixed(1)}pp) on this sell when all 10k mint.
+              You&apos;d save <span className="led" style={{ color: "var(--gold-hi)" }}>{priceKnown ? `$${fmt(usdcGross * 0.235)}` : "—"}</span> ({(taxPct - 1.5).toFixed(1)}pp) on this sell when all 10k mint.
             </span>
           </div>
           <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 6, letterSpacing: "0.05em" }}>
@@ -251,29 +429,103 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
         </div>
       )}
 
+      {readOnly ? (
+        <button
+          disabled
+          title="Phase B unlocks after 10,000 cards minted"
+          style={{
+            padding: "20px 0",
+            background: "var(--ink-300)",
+            color: "var(--ink-600)",
+            fontFamily: "var(--f-display)",
+            fontSize: 18,
+            letterSpacing: "0.12em",
+            border: "none",
+            borderRadius: 4,
+            cursor: "not-allowed",
+          }}
+        >
+          PHASE B PREVIEW · UNLOCKS AT 10,000 CARDS
+        </button>
+      ) : (
+        <SellCtaButton
+          address={address}
+          amount={amount}
+          amountWei={amountWei}
+          casteBalWei={casteBalWei}
+          casteBalance={casteBalance}
+          phase={phase}
+          taxPct={taxPct}
+          usdcNet={usdcNet}
+          accent={accent}
+          priceKnown={priceKnown}
+        />
+      )}
+      <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", textAlign: "center" }}>
+        ▸ Phase {phase} · tax is locked by protocol · trigger is <code>card.totalSupply() == 10000</code>
+      </div>
+    </div>
+  );
+}
+
+function SellCtaButton({
+  address,
+  amount,
+  amountWei,
+  casteBalWei,
+  casteBalance,
+  phase,
+  taxPct,
+  usdcNet,
+  accent,
+  priceKnown,
+}: {
+  address: `0x${string}` | undefined;
+  amount: number;
+  amountWei: bigint;
+  casteBalWei: bigint;
+  casteBalance: number;
+  phase: Phase;
+  taxPct: number;
+  usdcNet: number;
+  accent: string;
+  priceKnown: boolean;
+}) {
+  const sell = useSellCaste();
+  // Disable on wei comparison — that's the source of truth. The number side
+  // is for display only and can lag/round.
+  const disabled = !address || sell.isPending || amountWei <= 0n || amountWei > casteBalWei;
+  return (
+    <>
       <button
-        disabled={!address || sell.isPending}
-        onClick={() => sell.mutate({ amount: BigInt(amount) * ONE_E18 })}
+        disabled={disabled}
+        onClick={() => sell.mutate({ amount: amountWei })}
         style={{
           padding: "20px 0",
-          background: !address || sell.isPending ? "var(--ink-300)" : accent,
-          color: !address || sell.isPending ? "var(--ink-600)" : "var(--bone)",
+          background: disabled ? "var(--ink-300)" : accent,
+          color: disabled ? "var(--ink-600)" : "var(--bone)",
           fontFamily: "var(--f-display)",
           fontSize: 18,
           letterSpacing: "0.12em",
           border: "none",
           borderRadius: 4,
-          boxShadow: !address || sell.isPending ? "none" : `0 6px 0 ${phase === "A" ? "var(--blood-lo)" : "oklch(0.45 0.10 155)"}, 0 16px 32px oklch(0.62 0.24 25 / 0.4)`,
-          cursor: !address || sell.isPending ? "not-allowed" : "pointer",
+          boxShadow: disabled
+            ? "none"
+            : `0 6px 0 ${phase === "A" ? "var(--blood-lo)" : "oklch(0.45 0.10 155)"}, 0 16px 32px oklch(0.62 0.24 25 / 0.4)`,
+          cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
         {!address
           ? "CONNECT WALLET TO SELL"
           : sell.isPending
           ? "SELLING…"
+          : amountWei <= 0n
+          ? "ENTER AN AMOUNT"
+          : amountWei > casteBalWei
+          ? `INSUFFICIENT BALANCE · YOU HAVE ${fmtNum(casteBalance)}`
           : phase === "A"
-          ? `SELL ${fmtNum(amount)} · PAY ${taxPct}% TAX · GET $${fmt(usdcNet)}`
-          : `SELL ${fmtNum(amount)} · GET $${fmt(usdcNet)}`}
+          ? `SELL ${fmtNum(amount)} · PAY ${taxPct}% TAX · ${priceKnown ? `GET $${fmt(usdcNet)}` : "GET — USDC"}`
+          : `SELL ${fmtNum(amount)} · ${priceKnown ? `GET $${fmt(usdcNet)}` : "GET — USDC"}`}
       </button>
       {sell.isError && (
         <div className="mono" style={{ fontSize: 11, color: "var(--blood-hi)", letterSpacing: "0.05em", textAlign: "center", padding: 8, border: "1px dashed var(--blood-lo)", borderRadius: 4 }}>
@@ -285,15 +537,22 @@ function SellComposer({ amount, phase, cardsMinted }: { amount: number; phase: P
           ✓ sold @ block {sell.data.blockNumber.toString()}
         </div>
       )}
-      <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em", textAlign: "center" }}>
-        ▸ Phase {phase} · tax is locked by protocol · trigger is <code>card.totalSupply() == 10000</code>
-      </div>
-    </div>
+    </>
   );
 }
 
-function FeeFlow({ amount, phase }: { amount: number; phase: Phase }) {
-  const usdcGross = amount * PRICE_CASTE;
+function FeeFlow({
+  amount,
+  phase,
+  priceCaste,
+  priceKnown,
+}: {
+  amount: number;
+  phase: Phase;
+  priceCaste: number;
+  priceKnown: boolean;
+}) {
+  const usdcGross = amount * priceCaste;
   const taxPct = phase === "A" ? 25 : 1.5;
   const hourlyPct = phase === "A" ? 16.67 : 1.0;
   const megaPct = phase === "A" ? 8.33 : 0.5;
@@ -301,6 +560,7 @@ function FeeFlow({ amount, phase }: { amount: number; phase: Phase }) {
   const toHourly = usdcGross * (hourlyPct / 100);
   const toMega = usdcGross * (megaPct / 100);
   const accent = phase === "A" ? "var(--blood-hi)" : "var(--jade)";
+  const fmtDollar = (n: number) => (priceKnown ? `$${fmt(n)}` : "—");
 
   return (
     <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
@@ -309,7 +569,7 @@ function FeeFlow({ amount, phase }: { amount: number; phase: Phase }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <span className="display" style={{ fontSize: 26, color: accent, letterSpacing: "0.04em" }}>{taxPct}%</span>
-        <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>total tax · ${fmt(fee)}</span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>total tax · {fmtDollar(fee)}</span>
         <div style={{ flex: 1, height: 10, display: "flex", border: "1px solid var(--ink-400)", borderRadius: 2, overflow: "hidden" }}>
           <div style={{ flex: hourlyPct, background: "var(--jade)" }} />
           <div style={{ flex: megaPct, background: "var(--gold-hi)" }} />
@@ -319,12 +579,12 @@ function FeeFlow({ amount, phase }: { amount: number; phase: Phase }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={{ borderLeft: "2px solid var(--jade)", paddingLeft: 10 }}>
           <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{hourlyPct}% → HOURLY POOL</div>
-          <div className="led" style={{ fontSize: 18, color: "var(--jade)" }}>+${fmt(toHourly)}</div>
+          <div className="led" style={{ fontSize: 18, color: "var(--jade)" }}>+{fmtDollar(toHourly)}</div>
           <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>winner = epoch lastBuyer</div>
         </div>
         <div style={{ borderLeft: "2px solid var(--gold-hi)", paddingLeft: 10 }}>
           <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{megaPct}% → MEGA POOL</div>
-          <div className="led" style={{ fontSize: 18, color: "var(--gold-hi)" }}>+${fmt(toMega)}</div>
+          <div className="led" style={{ fontSize: 18, color: "var(--gold-hi)" }}>+{fmtDollar(toMega)}</div>
           <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>winner = global lastBuyer</div>
         </div>
       </div>
@@ -368,7 +628,7 @@ function PhaseCompare() {
         </div>
 
         {rows.map(([k, a, b], i) => (
-          <Fragment key={i}>
+          <Fragment key={k}>
             <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.05em", padding: "8px 0" }}>{k}</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--blood-hi)", padding: "8px 12px", borderBottom: i < rows.length - 1 ? "1px dotted var(--ink-400)" : "none", textAlign: "center" }}>{a}</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--jade)", padding: "8px 12px", borderBottom: i < rows.length - 1 ? "1px dotted var(--ink-400)" : "none", textAlign: "center" }}>{b}</div>
@@ -380,27 +640,42 @@ function PhaseCompare() {
 }
 
 function RecentSells({ phase }: { phase: Phase }) {
-  const taxPct = phase === "A" ? 25 : 1.5;
-  const rows = [
-    { user: "0x9f3a…ce21",     amt: 14200,  gross: 671.72,    ago: "0:03" },
-    { user: "anon-degen.eth",  amt: 1500,   gross: 70.99,     ago: "0:09" },
-    { user: "0x4d11…ab07",     amt: 88000,  gross: 4163.76,   ago: "0:22" },
-    { user: "0xdead…b0b",      amt: 240000, gross: 11357.04,  ago: "0:31" },
-    { user: "vitalik.eth",     amt: 7500,   gross: 354.95,    ago: "0:48" },
-  ];
+  const { data: events = [] } = useSellTaxEvents(20);
+  // Phase A events have phaseA=true; filter to the requested phase.
+  const filtered = events
+    .filter((e) => (phase === "A" ? e.phaseA : !e.phaseA))
+    .slice(0, 5);
+  const nowSec = Math.floor(Date.now() / 1000);
+  // USDC has 6 decimals — gross is the raw amount before tax.
+  const fromUsdc6 = (v: string | number | bigint) => Number(BigInt(v)) / 1e6;
+  const shortAddr = (a?: string | null) => (a && a.length >= 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : (a ?? "—"));
+  const fmtAgo = (ts: number) => {
+    const d = nowSec - ts;
+    if (d < 60) return `${Math.max(d, 0)}s`;
+    if (d < 3600) return `${Math.floor(d / 60)}m`;
+    return `${Math.floor(d / 3600)}h`;
+  };
+
   return (
     <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
         <span className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-600)" }}>RECENT SELLS · PHASE {phase}</span>
-        <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>SellExecuted events · last 5</span>
+        <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>SellTaxCollected events · last 5</span>
       </div>
-      {rows.map((r, i) => {
-        const net = r.gross * (1 - taxPct / 100);
-        const tax = r.gross - net;
+      {filtered.length === 0 && (
+        <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", padding: "12px 0", textAlign: "center" }}>
+          — no Phase {phase} sells yet —
+        </div>
+      )}
+      {filtered.map((r, i) => {
+        const gross = fromUsdc6(r.grossUsdcOut);
+        const tax = fromUsdc6(r.fee);
+        const net = gross - tax;
+        const ts = Number(r.blockTime ?? 0);
         return (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto auto", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: i < rows.length - 1 ? "1px dashed var(--ink-400)" : "none" }}>
-            <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>−{r.ago}</span>
-            <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>{r.user}</span>
+          <div key={`${r.txHash}-${i}`} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto auto", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: i < filtered.length - 1 ? "1px dashed var(--ink-400)" : "none" }}>
+            <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>−{fmtAgo(ts)}</span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>{shortAddr(r.seller)}</span>
             <span className="mono" style={{ fontSize: 11, color: phase === "A" ? "var(--blood-hi)" : "var(--ink-700)" }}>−${fmt(tax)} tax</span>
             <span className="led" style={{ fontSize: 14, color: phase === "A" ? "var(--blood-hi)" : "var(--jade)" }}>${fmt(net)}</span>
           </div>

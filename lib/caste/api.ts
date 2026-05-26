@@ -8,6 +8,7 @@ import type {
   MegaSettlementRow,
   SellTaxRow,
   StatsResponse,
+  TradeRow,
   UserResponse,
 } from "./response-types";
 
@@ -80,6 +81,9 @@ export const casteApi = {
 
   getSellTaxEvents: (limit?: number) =>
     get<SellTaxRow[]>("/sell-tax", { limit }),
+
+  getTrades: (params: { kind?: "buy" | "sell"; limit?: number } = {}) =>
+    get<TradeRow[]>("/trades", { kind: params.kind, limit: params.limit }),
 
   getUser: (address: string) =>
     get<UserResponse>(`/user/${encodeURIComponent(address.toLowerCase())}`),

@@ -6,9 +6,22 @@ import { useAccount } from "wagmi";
 
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { TierBadge } from "@/components/caste/tier-badge";
-import { LAST_BUY_V1, POOLS_V1 } from "@/lib/caste/mock";
-import { useStats } from "@/lib/caste/hooks";
+import { useStats, useMegaSettlements, useLivePoolState, useRecentTrades, useUserCards } from "@/lib/caste/hooks";
 import { useBuyCaste } from "@/lib/caste/writes";
+import { useIsMounted } from "@/lib/use-is-mounted";
+
+const USDC_1E6 = 1_000_000;
+const HOURLY_SECONDS = 3600;
+
+function shortAddr(a?: string | null): string {
+  if (!a || a.length < 12) return a ?? "—";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+function fmtAgoSec(d: number): string {
+  if (d < 60) return `${Math.max(d, 0)}s`;
+  if (d < 3600) return `${Math.floor(d / 60)}m`;
+  return `${Math.floor(d / 3600)}h`;
+}
 
 const ONE_E18 = 10n ** 18n;
 const UNIT_USDC = 6.66666;
@@ -21,8 +34,32 @@ const fmtCaste = (n: number) =>
 const log10 = (u: number) => Math.log10(Math.max(1, u));
 
 export default function SwapV1Page() {
+  const mounted = useIsMounted();
   const { data: stats } = useStats();
-  const { address } = useAccount();
+  const { data: megaSettlements = [] } = useMegaSettlements();
+  const { data: recentBuys = [] } = useRecentTrades({ kind: "buy", limit: 6 });
+  const live = useLivePoolState();
+  const megaPoolUsd = Number(live.megaPool) / USDC_1E6;
+  const hourlyPoolUsd = Number(live.hourlyPool) / USDC_1E6;
+  const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+  const lastBuyerAddr = live.lastBuyer && live.lastBuyer !== ZERO_ADDR ? live.lastBuyer : null;
+  const epochLastBuyerAddr = live.epochLastBuyer && live.epochLastBuyer !== ZERO_ADDR ? live.epochLastBuyer : null;
+  const { address: rawAddress } = useAccount();
+  // Gate wallet state behind mount to avoid SSR/CSR hydration mismatch on the
+  // buy button's `disabled` prop. Server has no wallet ⇒ disabled=true ⇒ if we
+  // expose the live address on first paint, the button flips to enabled and
+  // React throws "Hydration failed".
+  const address = mounted ? rawAddress : undefined;
+
+  // Real "highest flipped tier" — pulled from indexer-tracked CardFlipped rows.
+  const { data: flippedCards = [] } = useUserCards(address, { flipped: true });
+  const highest = flippedCards
+    .filter((c) => c.tier !== null && c.variant !== null)
+    .sort((a, b) => {
+      const t = (b.tier ?? 0) - (a.tier ?? 0);
+      if (t !== 0) return t;
+      return (b.variant ?? 0) - (a.variant ?? 0);
+    })[0];
   const buy = useBuyCaste();
   const [units, setUnits] = useState(12);
   const usdcIn = units * UNIT_USDC;
@@ -30,8 +67,15 @@ export default function SwapV1Page() {
   const swappable = usdcIn - fee;
   const casteOut = swappable * CASTE_PER_USDC;
   const willMint = Math.min(units, MAX_CARDS_PER_BUY);
-  const m = POOLS_V1.mega;
-  const h = POOLS_V1.hourly;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const currentEpoch = Math.floor(nowSec / HOURLY_SECONDS);
+  const drawInSec = Math.max((currentEpoch + 1) * HOURLY_SECONDS - nowSec, 0);
+  const drawMm = Math.floor(drawInSec / 60).toString().padStart(2, "0");
+  const drawSs = (drawInSec % 60).toString().padStart(2, "0");
+
+  const megaRound = megaSettlements.length + 1;
+  const latestMega = megaSettlements[0];
 
   const cardsMinted = stats?.cardsMinted ?? 0;
   const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
@@ -71,13 +115,28 @@ export default function SwapV1Page() {
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em", marginBottom: 4 }}>
             YOUR HIGHEST FLIPPED TIER
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "flex-end" }}>
-            <TierBadge tier={6} variant={2} size="md" />
-            <span className="mono" style={{ fontSize: 13, color: "var(--bone)" }}>#6969</span>
-          </div>
-          <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 6, letterSpacing: "0.1em" }}>
-            (drives V2 buffs — reserved interface)
-          </div>
+          {highest ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "flex-end" }}>
+                <TierBadge tier={highest.tier as number} variant={highest.variant as number} size="md" />
+                <span className="mono" style={{ fontSize: 13, color: "var(--bone)" }}>#{highest.tokenId}</span>
+              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 6, letterSpacing: "0.1em" }}>
+                (drives V2 buffs — reserved interface)
+              </div>
+            </>
+          ) : (
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.1em", lineHeight: 1.6 }}>
+              {address ? (
+                <>
+                  — no flipped cards yet —<br />
+                  <Link href="/mycards" style={{ color: "var(--acid)", textDecoration: "none" }}>→ FLIP YOUR SEALED CARDS</Link>
+                </>
+              ) : (
+                <>connect wallet to see your top flip</>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -117,8 +176,8 @@ export default function SwapV1Page() {
               ["1.5% fee", `−$${fmt(fee)}`, "var(--blood-hi)"],
               ["sealed cards", `+${willMint}`, "var(--bone)"],
               ["price impact", "0.04%", "var(--ink-700)"],
-            ] as const).map(([l, v, c], i) => (
-              <div key={i}>
+            ] as const).map(([l, v, c]) => (
+              <div key={l}>
                 <div className="mono" style={{ fontSize: 8, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{l.toUpperCase()}</div>
                 <div className="mono" style={{ fontSize: 12, color: c, marginTop: 2 }}>{v}</div>
               </div>
@@ -168,8 +227,6 @@ export default function SwapV1Page() {
         </div>
       </section>
 
-      <QuietBuyReceipt />
-
       <section style={{ padding: "20px 60px 32px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
           <span className="display" style={{ fontSize: 24, color: "var(--bone)" }}>Last Buyer Status</span>
@@ -183,52 +240,81 @@ export default function SwapV1Page() {
           <div style={{ position: "relative", padding: 22, border: "1px solid var(--gold-hi)", borderRadius: 8, background: "linear-gradient(135deg, oklch(0.20 0.08 82 / 0.4), var(--ink-200))", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
             <div className="mono" style={{ fontSize: 10, color: "var(--gold-hi)", letterSpacing: "0.25em", marginBottom: 6 }}>
-              MEGA POOL · ROUND {m.round}
+              MEGA POOL · ROUND {megaRound.toString().padStart(2, "0")}
             </div>
             <div className="led" style={{ fontSize: 46, color: "var(--gold-hi)", textShadow: "0 0 18px var(--gold)" }}>
-              ${(m.pool / 1e3).toFixed(1)}K
+              ${megaPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </div>
-            <div className="breathe" style={{ marginTop: 12, padding: "10px 14px", background: "var(--jade)", color: "var(--ink-000)", borderRadius: 4, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>👑</span>
-              <div>
-                <div className="display" style={{ fontSize: 14, letterSpacing: "0.18em" }}>YOU ARE LAST BUYER</div>
-                <div className="mono" style={{ fontSize: 9, color: "oklch(0.20 0.04 60)", letterSpacing: "0.12em" }}>
-                  your last buy · {m.lastBuyer.txAgo} ago · +{m.boostLast}s
-                </div>
+            {lastBuyerAddr ? (
+              <div className="mono" style={{ fontSize: 10, color: "var(--gold-hi)", marginTop: 6, letterSpacing: "0.1em" }}>
+                ★ KING · <strong>{shortAddr(lastBuyerAddr)}</strong>{lastBuyerAddr.toLowerCase() === address?.toLowerCase() && " (YOU)"}
               </div>
-            </div>
+            ) : (
+              <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.12em", marginTop: 4 }}>
+                ▸ no buyer yet — be first to claim lastBuyer
+              </div>
+            )}
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
-              ▸ If FOMO countdown hits 0 with no buy after you, the entire mega pool transfers to your wallet.
+              ▸ If FOMO countdown hits 0 with no buy after the current lastBuyer, the entire mega pool transfers to them.
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 12 }}>
               <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.18em" }}>COUNTDOWN</span>
               <span className="led" style={{ fontSize: 22, color: "var(--blood-hi)" }}>
-                {m.deadline.hh}:{m.deadline.mm}:{m.deadline.ss}
+                {fomoHh}:{fomoMm}:{fomoSs}
               </span>
             </div>
+            {latestMega && (
+              <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 10 }}>
+                last mega: {shortAddr(latestMega.winner)} · ${(Number(BigInt(latestMega.prize)) / USDC_1E6).toLocaleString(undefined, { maximumFractionDigits: 2 })} · {fmtAgoSec(nowSec - Number(latestMega.blockTime))} ago
+              </div>
+            )}
           </div>
 
           <div style={{ padding: 22, border: "1px solid var(--ink-400)", borderRadius: 8, background: "var(--ink-200)" }}>
             <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em", marginBottom: 6 }}>
-              THIS HOUR&apos;S POOL · epoch {h.epoch}
+              THIS HOUR&apos;S POOL · epoch {currentEpoch}
             </div>
-            <div className="led" style={{ fontSize: 46, color: "var(--jade)" }}>${(h.pool / 1e3).toFixed(1)}K</div>
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--ink-100)", border: "1px solid var(--ink-400)", borderRadius: 4, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18, opacity: 0.4 }}>👑</span>
-              <div>
-                <div className="display" style={{ fontSize: 14, color: "var(--bone-dim)", letterSpacing: "0.1em" }}>
-                  LAST BUYER · <span style={{ color: "var(--bone)" }}>{h.lastBuyer.addr}</span>
-                </div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", letterSpacing: "0.12em" }}>
-                  · bought {h.lastBuyer.units}u · {h.lastBuyer.txAgo} ago · not you
-                </div>
+            <div className="led" style={{ fontSize: 46, color: "var(--jade)" }}>${hourlyPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+            {epochLastBuyerAddr && (
+              <div className="mono" style={{ fontSize: 10, color: "var(--jade)", marginTop: 6, letterSpacing: "0.1em" }}>
+                hourly leader: <strong>{shortAddr(epochLastBuyerAddr)}</strong>{epochLastBuyerAddr.toLowerCase() === address?.toLowerCase() && " (YOU)"}
               </div>
-            </div>
+            )}
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
-              ▸ Buy now to overtake them as this hour&apos;s last buyer.<br />
-              ▸ Settles in {h.drawIn.mm}:{h.drawIn.ss}.
+              ▸ Each buy makes you this epoch&apos;s lastBuyer — the lastBuyer at settlement wins.<br />
+              ▸ Settles in {drawMm}:{drawSs}.
             </div>
           </div>
+        </div>
+      </section>
+
+      <section style={{ padding: "12px 60px 36px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
+          <span className="display" style={{ fontSize: 22, color: "var(--bone)" }}>Recent Buys</span>
+          <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
+            · live PoolManager.Swap feed
+          </span>
+          <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
+        </div>
+        <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
+          {recentBuys.length === 0 && (
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", padding: "16px 0", textAlign: "center" }}>
+              — no buys yet · be the first —
+            </div>
+          )}
+          {recentBuys.map((t) => {
+            const usdc = Number(BigInt(t.usdcAmount)) / USDC_1E6;
+            const caste = Number(BigInt(t.casteAmount)) / 1e18;
+            const ts = Number(t.blockTime);
+            return (
+              <div key={t.id} style={{ display: "grid", gridTemplateColumns: "60px 1fr auto auto", gap: 12, alignItems: "center", padding: "8px 0", borderBottom: "1px dashed var(--ink-400)" }}>
+                <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)" }}>−{fmtAgoSec(nowSec - ts)}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>{shortAddr(t.sender)}</span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)" }}>−${usdc.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                <span className="led" style={{ fontSize: 14, color: "var(--acid)" }}>+{caste >= 1e6 ? `${(caste / 1e6).toFixed(2)}M` : caste >= 1e3 ? `${(caste / 1e3).toFixed(1)}K` : Math.round(caste).toLocaleString()}</span>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -326,6 +412,7 @@ function SealedPreview({ units }: { units: number }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 18, alignItems: "center" }}>
         <div style={{ position: "relative", width: 130, height: 130 }}>
+          {/* purely visual placeholder stack, no stable id — index is OK */}
           {Array.from({ length: willMint }).map((_, i) => (
             <div
               key={i}
@@ -431,7 +518,7 @@ function FeeAndFomo({ units, usdcIn }: { units: number; usdcIn: number }) {
           alignItems: "center",
         }}
       >
-        <span className="mono" style={{ fontSize: 10, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>🔥 FOMO DEADLINE</span>
+        <span className="mono" style={{ fontSize: 10, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>▸ FOMO DEADLINE</span>
         <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span className="led" style={{ fontSize: 22, color: "var(--blood-hi)" }}>+{fomoAdd}s</span>
           <span className="mono" style={{ fontSize: 9, color: "var(--ink-700)" }}>= 60 × log10({units})</span>
@@ -445,111 +532,3 @@ function FeeAndFomo({ units, usdcIn }: { units: number; usdcIn: number }) {
   );
 }
 
-function QuietBuyReceipt() {
-  const b = LAST_BUY_V1;
-  return (
-    <section style={{ padding: "20px 60px 32px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
-        <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-700)" }}>● LAST TX · QUIET RECEIPT</span>
-        <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
-        <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
-          {b.tx} · block {b.block.toLocaleString()} · {b.ago} ago
-        </span>
-      </div>
-
-      <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 20, position: "relative" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, var(--jade), transparent 60%)" }} />
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.2fr", gap: 18, alignItems: "center" }}>
-          <div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>PAID</div>
-            <div className="led" style={{ fontSize: 28, color: "var(--bone-dim)", marginTop: 4 }}>−${fmt(b.usdcIn)}</div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>
-              {b.units} units · 1.5% fee ${fmt(b.fee)}
-            </div>
-          </div>
-          <div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--jade)", letterSpacing: "0.2em" }}>+ CASTE · POOL CURVE</div>
-            <div className="led" style={{ fontSize: 28, color: "var(--jade)", marginTop: 4 }}>+{fmtCaste(b.casteOut)}</div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>credited to balance · no bonus, no roll</div>
-          </div>
-          <div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>+ SEALED CARDS</div>
-            <div className="led" style={{ fontSize: 28, color: "var(--blood-hi)", marginTop: 4 }}>+{b.sealedMinted}</div>
-            <div className="mono" style={{ fontSize: 9, color: "var(--ink-700)", marginTop: 2 }}>#{b.serialFrom} – #{b.serialTo}</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-            {Array.from({ length: b.sealedMinted }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  width: 56,
-                  height: 78,
-                  background: "linear-gradient(160deg, var(--ink-300), var(--ink-100))",
-                  border: "1px solid var(--ink-500)",
-                  borderRadius: 3,
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
-                <span
-                  className="display"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 22,
-                    color: "oklch(1 0 0 / 0.5)",
-                  }}
-                >
-                  ?
-                </span>
-                <div className="mono" style={{ position: "absolute", bottom: 2, right: 3, fontSize: 6, color: "oklch(1 0 0 / 0.5)" }}>
-                  #{b.serialFrom + i}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 18,
-            padding: "10px 14px",
-            borderTop: "1px dashed var(--ink-400)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--jade)", boxShadow: "0 0 8px var(--jade)" }} />
-            <span className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>
-              BuyExecuted({b.units}u, {Math.floor(b.casteOut / 1e3)}k CASTE) · 4× CardMinted
-            </span>
-          </div>
-          <Link
-            href="/mycards"
-            style={{
-              padding: "6px 14px",
-              background: "var(--ink-300)",
-              color: "var(--acid)",
-              border: "1px solid var(--acid-lo)",
-              borderRadius: 3,
-              fontFamily: "var(--f-mono)",
-              fontSize: 11,
-              letterSpacing: "0.15em",
-              textDecoration: "none",
-            }}
-          >
-            → FLIP IN /MYCARDS
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}

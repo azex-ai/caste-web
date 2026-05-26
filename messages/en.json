@@ -1,0 +1,40 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "switching": "Switching…",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next"
+  },
+  "nav": {
+    "logoTagline": "RANK · ROLL · REPEAT",
+    "ariaHome": "$CASTE — home",
+    "ariaLanguage": "Language"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "korean": "한국어"
+  },
+  "banner": {
+    "wrongNetwork": {
+      "title": "⚠ WRONG NETWORK",
+      "body": "Your wallet is on chain {current} — $CASTE lives on chain {target}. Any tx you sign now goes to the wrong chain.",
+      "switching": "SWITCHING…",
+      "switchTo": "→ SWITCH TO CHAIN {target}"
+    },
+    "configMismatch": {
+      "title": "⚠ CONFIG MISMATCH",
+      "body": "Indexer/frontend disagree: {issues} — verify NEXT_PUBLIC_* in .env.local",
+      "issue": {
+        "chainId": "chainId {indexer} vs {frontend}",
+        "hook": "hook {indexer}… vs {frontend}…",
+        "token": "token mismatch",
+        "card": "card mismatch",
+        "usdc": "usdc mismatch"
+      }
+    }
+  }
+}

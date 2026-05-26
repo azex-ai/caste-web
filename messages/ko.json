@@ -1,0 +1,40 @@
+{
+  "common": {
+    "loading": "로딩 중…",
+    "switching": "전환 중…",
+    "cancel": "취소",
+    "confirm": "확인",
+    "close": "닫기",
+    "back": "뒤로",
+    "next": "다음"
+  },
+  "nav": {
+    "logoTagline": "RANK · ROLL · REPEAT",
+    "ariaHome": "$CASTE — 홈",
+    "ariaLanguage": "언어"
+  },
+  "language": {
+    "label": "언어",
+    "english": "English",
+    "korean": "한국어"
+  },
+  "banner": {
+    "wrongNetwork": {
+      "title": "⚠ 잘못된 네트워크",
+      "body": "지갑이 체인 {current}에 연결되어 있습니다 — $CASTE는 체인 {target}에서 작동합니다. 지금 서명하는 트랜잭션은 잘못된 체인으로 전송됩니다.",
+      "switching": "전환 중…",
+      "switchTo": "→ 체인 {target}(으)로 전환"
+    },
+    "configMismatch": {
+      "title": "⚠ 설정 불일치",
+      "body": "인덱서와 프론트엔드 설정이 일치하지 않습니다: {issues} — .env.local의 NEXT_PUBLIC_* 값을 확인하세요.",
+      "issue": {
+        "chainId": "체인 ID {indexer} vs {frontend}",
+        "hook": "훅 {indexer}… vs {frontend}…",
+        "token": "토큰 주소 불일치",
+        "card": "카드 주소 불일치",
+        "usdc": "USDC 주소 불일치"
+      }
+    }
+  }
+}
