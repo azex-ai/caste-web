@@ -20,10 +20,8 @@ export interface StatsResponse {
   // Wave-3 hourly redesign — exposed by the indexer's /api/caste/stats.
   // `currentEpoch` is `floor(now / 3600)` and `currentEpochTotalWeight` is the
   // total tickets recorded so far this hour (used for "your tickets" odds).
-  // `lastBuyEpoch` mirrors the on-chain pointer; null until the first buy.
   currentEpoch?: string;
   currentEpochTotalWeight?: number;
-  lastBuyEpoch?: string | null;
   sqrtPriceX96Last?: string | null;
   tickLast?: number | null;
   lastSwapBlock?: string | null;
