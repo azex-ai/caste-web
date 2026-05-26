@@ -17,6 +17,17 @@ export interface StatsResponse {
   bufferShortfall: string;
   megaDeadline: string;
   fomoSecondsLeft: number;
+  // Wave-3 hourly redesign — exposed by the indexer's /api/caste/stats.
+  // `currentEpoch` is `floor(now / 3600)` and `currentEpochTotalWeight` is the
+  // total tickets recorded so far this hour (used for "your tickets" odds).
+  // `lastBuyEpoch` mirrors the on-chain pointer; null until the first buy.
+  currentEpoch?: string;
+  currentEpochTotalWeight?: number;
+  lastBuyEpoch?: string | null;
+  sqrtPriceX96Last?: string | null;
+  tickLast?: number | null;
+  lastSwapBlock?: string | null;
+  lastSwapTime?: string | null;
 }
 
 export interface CardRow {
@@ -53,11 +64,41 @@ export interface FlipRow {
 
 export interface HourlyEpochRow {
   epochId: string;
-  status: "settled" | "rolledOver";
+  // Wave-3 status enum — pending until auto-settled by a subsequent buy.
+  status: "pending" | "settled" | "rolledOver" | "expiredToMega";
   winner: Hex | null;
+  // Prize is null while pending — only filled in once a settle event lands.
   prize: string;
+  // Wave-3 lifecycle fields. Older indexer payloads will have these undefined
+  // until they backfill, so consumers should treat them as optional.
+  startBlock?: string;
+  anchorBlock?: string | null;
+  totalWeight?: number;
+  settled?: boolean;
+  // Rollover destination — "<epochId>" or "mega". Null on pending/settled.
+  target?: string | null;
   settledBlock: string;
   settledTime: string;
+}
+
+// Wave-3: one ticket recorded per buy in an epoch. Used by the
+// /api/caste/lottery/hourly/:epoch/entries endpoint for both the full epoch
+// ticket list and the per-user "your tickets this hour" view.
+export interface LotteryEntry {
+  epochId: string;
+  idx: number;
+  buyer: Hex;
+  cumWeight: number;
+  buyBlock: string;
+  buyTime: string;
+  buyTxHash: Hex;
+}
+
+export interface HourlyEntriesResponse {
+  epoch: string;
+  owner: Hex | null;
+  total: number;
+  entries: LotteryEntry[];
 }
 
 export interface MegaSettlementRow {

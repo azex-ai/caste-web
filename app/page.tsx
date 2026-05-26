@@ -162,7 +162,7 @@ export default function LandingV1Page() {
           <FlowBlock title="EVERY BUY · $6.66666 / UNIT" subtitle="1.5% fee split — rest goes through LP curve"
             lanes={[
               { pct: 98.5, v: "$6.566", l: "TO POOL CURVE", color: "var(--cobalt)",  note: "buyer receives CASTE at LP price" },
-              { pct:  1.0, v: "$0.067", l: "→ HOURLY",       color: "var(--jade)",    note: "epochLastBuyer takes this hour" },
+              { pct:  1.0, v: "$0.067", l: "→ HOURLY",       color: "var(--jade)",    note: "weighted ticket draw at next hour" },
               { pct:  0.5, v: "$0.033", l: "→ MEGA",         color: "var(--gold-hi)", note: "global lastBuyer at FOMO zero" },
             ]} />
           <FlowBlock title="PHASE A SELL · 25% TAX" subtitle="while < 10k cards minted · forces patience" hot

@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 
 import { Ticker, Footer } from "@/components/caste/caste-chrome";
 import { TierBadge } from "@/components/caste/tier-badge";
-import { useStats, useMegaSettlements, useLivePoolState, useRecentTrades, useUserCards } from "@/lib/caste/hooks";
+import { useStats, useMegaSettlements, useLivePoolState, useRecentTrades, useUserCards, useHourlyEntries } from "@/lib/caste/hooks";
 import { useBuyCaste } from "@/lib/caste/writes";
 import { useIsMounted } from "@/lib/use-is-mounted";
 
@@ -26,7 +26,9 @@ function fmtAgoSec(d: number): string {
 const ONE_E18 = 10n ** 18n;
 const UNIT_USDC = 6.66666;
 const CASTE_PER_USDC = 21008;
-const MAX_CARDS_PER_BUY = 4;
+// Wave-3: protocol-wide sealed-card cap. Each buy now mints 1 card per unit
+// (no per-buy cap), so the only ceiling is the global supply limit.
+const MAX_CARDS = 10_000;
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtCaste = (n: number) =>
@@ -43,7 +45,6 @@ export default function SwapV1Page() {
   const hourlyPoolUsd = Number(live.hourlyPool) / USDC_1E6;
   const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
   const lastBuyerAddr = live.lastBuyer && live.lastBuyer !== ZERO_ADDR ? live.lastBuyer : null;
-  const epochLastBuyerAddr = live.epochLastBuyer && live.epochLastBuyer !== ZERO_ADDR ? live.epochLastBuyer : null;
   const { address: rawAddress } = useAccount();
   // Gate wallet state behind mount to avoid SSR/CSR hydration mismatch on the
   // buy button's `disabled` prop. Server has no wallet ⇒ disabled=true ⇒ if we
@@ -66,7 +67,12 @@ export default function SwapV1Page() {
   const fee = usdcIn * 0.015;
   const swappable = usdcIn - fee;
   const casteOut = swappable * CASTE_PER_USDC;
-  const willMint = Math.min(units, MAX_CARDS_PER_BUY);
+  // Wave-3: 1 unit = 1 card. Capped only by the protocol-wide MAX_CARDS supply.
+  // We over-credit on partial-mint so the supply bound dictates `willMint`.
+  const cardsMintedNow = stats?.cardsMinted ?? 0;
+  const cardsRemaining = Math.max(0, MAX_CARDS - cardsMintedNow);
+  const willMint = Math.min(units, cardsRemaining);
+  const willPartialMint = units > cardsRemaining;
 
   const nowSec = Math.floor(Date.now() / 1000);
   const currentEpoch = Math.floor(nowSec / HOURLY_SECONDS);
@@ -77,7 +83,21 @@ export default function SwapV1Page() {
   const megaRound = megaSettlements.length + 1;
   const latestMega = megaSettlements[0];
 
-  const cardsMinted = stats?.cardsMinted ?? 0;
+  // Wave-3: your tickets so far this hour, derived from indexer entries +
+  // current-epoch totalWeight on /api/caste/stats. We prefer the indexer's
+  // `currentEpoch` (sourced from server-side floor(now/3600)) but fall back to
+  // the local JS-side calc so the widget still renders before stats loads.
+  const currentEpochBig = stats?.currentEpoch
+    ? BigInt(stats.currentEpoch)
+    : BigInt(currentEpoch);
+  const currentEpochTotalWeight = stats?.currentEpochTotalWeight ?? 0;
+  const { data: myTickets } = useHourlyEntries(currentEpochBig, address);
+  const myTicketCount = myTickets?.total ?? 0;
+  const winProbability = currentEpochTotalWeight > 0
+    ? (myTicketCount / currentEpochTotalWeight) * 100
+    : 0;
+
+  const cardsMinted = cardsMintedNow;
   const bufferRemaining = stats ? Number(BigInt(stats.bufferRemaining) / ONE_E18) : 0;
   const bufferStart = stats ? Number(BigInt(stats.bufferStart) / ONE_E18) : 4_200_000_000;
   const flipsRemaining = stats ? Number(BigInt(stats.bufferRemaining) / (13_900n * ONE_E18)) : 0;
@@ -107,8 +127,8 @@ export default function SwapV1Page() {
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 760, marginTop: 12, lineHeight: 1.55 }}>
             1 unit = <span className="led" style={{ color: "var(--bone)", fontSize: 16 }}>$6.66666</span>. Buy 1–100. You get the{" "}
-            <strong style={{ color: "var(--bone)" }}>pure pool curve</strong> in $CASTE — no multiplier, no surprise. Up to 4{" "}
-            <strong style={{ color: "var(--blood-hi)" }}>sealed cards</strong> are minted as a side-effect; flip them on your own time.
+            <strong style={{ color: "var(--bone)" }}>pure pool curve</strong> in $CASTE — no multiplier, no surprise. One{" "}
+            <strong style={{ color: "var(--blood-hi)" }}>sealed card</strong> is minted per unit (capped at 10,000 protocol-wide); flip them on your own time.
           </p>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -222,7 +242,7 @@ export default function SwapV1Page() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <SealedPreview units={units} />
+          <SealedPreview units={units} willMint={willMint} willPartialMint={willPartialMint} />
           <FeeAndFomo units={units} usdcIn={usdcIn} />
         </div>
       </section>
@@ -275,13 +295,33 @@ export default function SwapV1Page() {
               THIS HOUR&apos;S POOL · epoch {currentEpoch}
             </div>
             <div className="led" style={{ fontSize: 46, color: "var(--jade)" }}>${hourlyPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-            {epochLastBuyerAddr && (
-              <div className="mono" style={{ fontSize: 10, color: "var(--jade)", marginTop: 6, letterSpacing: "0.1em" }}>
-                hourly leader: <strong>{shortAddr(epochLastBuyerAddr)}</strong>{epochLastBuyerAddr.toLowerCase() === address?.toLowerCase() && " (YOU)"}
+            {address && (
+              <div
+                className="mono"
+                style={{
+                  fontSize: 10,
+                  color: "var(--jade)",
+                  marginTop: 8,
+                  letterSpacing: "0.1em",
+                  padding: "6px 8px",
+                  background: "oklch(0.20 0.08 155 / 0.18)",
+                  border: "1px dashed var(--jade)",
+                  borderRadius: 3,
+                }}
+              >
+                YOUR TICKETS THIS HOUR · <strong style={{ color: "var(--bone)" }}>{myTicketCount}</strong>
+                {" / "}
+                {currentEpochTotalWeight}
+                {currentEpochTotalWeight > 0 && (
+                  <>
+                    {" · "}
+                    <span style={{ color: "var(--acid)" }}>{winProbability.toFixed(1)}% odds</span>
+                  </>
+                )}
               </div>
             )}
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 10, letterSpacing: "0.05em", lineHeight: 1.6 }}>
-              ▸ Each buy makes you this epoch&apos;s lastBuyer — the lastBuyer at settlement wins.<br />
+              ▸ Every buy logs a weighted ticket for this epoch. Auto-settles on the next buy after the hour rolls — winner drawn proportional to tickets.<br />
               ▸ Settles in {drawMm}:{drawSs}.
             </div>
           </div>
@@ -361,13 +401,12 @@ function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number
       <div style={{ marginTop: 18, position: "relative" }}>
         <div style={{ height: 8, background: "var(--ink-300)", borderRadius: 4, border: "1px solid var(--ink-400)", overflow: "hidden", position: "relative" }}>
           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${units}%`, background: "linear-gradient(90deg, var(--acid-lo), var(--acid))" }} />
-          <div style={{ position: "absolute", left: "4%", top: 0, bottom: 0, width: 2, background: "var(--blood-hi)", opacity: 0.6 }} />
         </div>
         <div style={{ position: "absolute", top: 2, left: `${units}%`, transform: "translate(-50%, -2px)", width: 14, height: 16, background: "var(--acid)", borderRadius: 2, boxShadow: "0 0 10px var(--acid)", border: "1px solid var(--ink-000)" }} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
         <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>1</span>
-        <span className="mono" style={{ fontSize: 9, color: "var(--blood-hi)" }}>↑ 4 = max sealed cards / buy</span>
+        <span className="mono" style={{ fontSize: 9, color: "var(--blood-hi)" }}>↑ 1 unit = 1 sealed card</span>
         <span className="mono" style={{ fontSize: 9, color: "var(--ink-600)" }}>100 max</span>
       </div>
 
@@ -397,8 +436,17 @@ function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number
   );
 }
 
-function SealedPreview({ units }: { units: number }) {
-  const willMint = Math.min(units, MAX_CARDS_PER_BUY);
+function SealedPreview({
+  units,
+  willMint,
+  willPartialMint,
+}: {
+  units: number;
+  willMint: number;
+  willPartialMint: boolean;
+}) {
+  // Cap the visual stack so we don't render hundreds of overlapping cards.
+  const visualCount = Math.min(willMint, 6);
   return (
     <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, background: "var(--ink-200)", padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
@@ -413,7 +461,7 @@ function SealedPreview({ units }: { units: number }) {
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 18, alignItems: "center" }}>
         <div style={{ position: "relative", width: 130, height: 130 }}>
           {/* purely visual placeholder stack, no stable id — index is OK */}
-          {Array.from({ length: willMint }).map((_, i) => (
+          {Array.from({ length: visualCount }).map((_, i) => (
             <div
               key={i}
               style={{
@@ -457,18 +505,18 @@ function SealedPreview({ units }: { units: number }) {
               {willMint}
             </span>
             <span className="display" style={{ fontSize: 16, color: "var(--bone-dim)", letterSpacing: "0.05em" }}>
-              sealed cards minted
+              sealed card{willMint === 1 ? "" : "s"} minted
             </span>
           </div>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 8, lineHeight: 1.6 }}>
             ▸ <strong style={{ color: "var(--bone)" }}>No attributes</strong> until you flip — same look as everyone else&apos;s cover.<br />
             ▸ Flip later (any block ≥ commit + 2). Payout from buffer, sent same tx.<br />
-            {units > MAX_CARDS_PER_BUY ? (
+            {willPartialMint ? (
               <span style={{ color: "var(--blood-hi)" }}>
-                ▸ Excess units ({units - MAX_CARDS_PER_BUY}) buy CASTE but no extra cards.
+                ▸ Supply cap nearly reached — {willMint} of {units} units will mint a card. Excess units still buy CASTE.
               </span>
             ) : (
-              <span>▸ Cap is 4 per buy — extra units only buy CASTE.</span>
+              <span>▸ 1 unit = 1 sealed card (capped at {MAX_CARDS.toLocaleString()} protocol-wide).</span>
             )}
           </div>
         </div>

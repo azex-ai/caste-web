@@ -30,7 +30,6 @@ export default function PoolsV1Page() {
   const hourlyPoolUsd = Number(live.hourlyPool) / USDC_1E6;
   const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
   const lastBuyerAddr = live.lastBuyer && live.lastBuyer !== ZERO_ADDR ? live.lastBuyer : null;
-  const epochLastBuyerAddr = live.epochLastBuyer && live.epochLastBuyer !== ZERO_ADDR ? live.epochLastBuyer : null;
 
   const nowSec = Math.floor(Date.now() / 1000);
   const currentEpoch = Math.floor(nowSec / HOURLY_SECONDS);
@@ -57,7 +56,10 @@ export default function PoolsV1Page() {
   const megaRound = megaSettlements.length;
   const latestMega = megaSettlements[0];
   const latestEpoch = hourlyEpochs[0];
-  const rolledOver = latestEpoch?.status === "rolledOver" ? Number(BigInt(latestEpoch.prize)) / USDC_1E6 : 0;
+  const rolledOver =
+    latestEpoch?.status === "rolledOver" && latestEpoch.prize
+      ? Number(BigInt(latestEpoch.prize)) / USDC_1E6
+      : 0;
 
   const tickerItems = [
     { tag: "▸ BUFFER", text: `${(bufferRemaining / 1e9).toFixed(2)}B CASTE · ${flipsExecuted.toLocaleString()} flips paid · ~${(flipsRemaining / 1000).toFixed(0)}k left`, color: "var(--orchid)" },
@@ -254,33 +256,28 @@ export default function PoolsV1Page() {
                   ${hourlyPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>inflow: 1% of buys · 16.67% of Phase A sells</div>
-                {epochLastBuyerAddr && (
-                  <div className="mono" style={{ fontSize: 10, color: "var(--jade)", marginTop: 6 }}>
-                    epoch lastBuyer: <strong>{shortAddr(epochLastBuyerAddr)}</strong>
-                  </div>
-                )}
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>DRAWS IN</div>
                 <div className="led" style={{ fontSize: 40, color: "var(--gold-hi)", lineHeight: 0.9, marginTop: 6 }}>
                   {drawMm}:{drawSs}
                 </div>
-                <button
+                <div
+                  className="mono"
                   style={{
                     marginTop: 8,
                     padding: "6px 14px",
                     background: "transparent",
                     color: "var(--jade)",
-                    border: "1px solid var(--jade)",
-                    fontFamily: "var(--f-mono)",
+                    border: "1px dashed var(--jade)",
                     fontSize: 10,
                     letterSpacing: "0.15em",
                     borderRadius: 3,
-                    cursor: "pointer",
+                    display: "inline-block",
                   }}
                 >
-                  settleHourly(epoch) at draw
-                </button>
+                  auto-settles on next buy
+                </div>
               </div>
             </div>
 
@@ -295,8 +292,17 @@ export default function PoolsV1Page() {
                   </div>
                 )}
                 {hourlyEpochs.slice(0, 5).map((e, i) => {
-                  const prizeUsd = Number(BigInt(e.prize)) / USDC_1E6;
+                  const prizeUsd = e.prize ? Number(BigInt(e.prize)) / USDC_1E6 : 0;
                   const settledTs = Number(e.settledTime);
+                  const isPending = e.status === "pending";
+                  let middle: string;
+                  if (e.status === "settled") middle = shortAddr(e.winner);
+                  else if (e.status === "rolledOver")
+                    middle = `→ ${e.target === "mega" ? "mega pool" : `epoch ${e.target}`}`;
+                  else if (e.status === "expiredToMega") middle = "→ mega pool (expired)";
+                  else middle = "— pending settle —";
+                  const prizeColor =
+                    e.status === "settled" ? "var(--jade)" : isPending ? "var(--ink-700)" : "var(--gold-hi)";
                   return (
                     <div
                       key={e.epochId}
@@ -314,13 +320,13 @@ export default function PoolsV1Page() {
                         ep {e.epochId}
                       </span>
                       <span className="mono" style={{ fontSize: 11, color: i === 0 ? "var(--bone)" : "var(--bone-dim)" }}>
-                        {e.status === "rolledOver" ? "— rolled over —" : shortAddr(e.winner)}
+                        {middle}
                       </span>
                       <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", textAlign: "right" }}>
-                        {fmtAgo(settledTs, nowSec)} ago
+                        {isPending ? "—" : `${fmtAgo(settledTs, nowSec)} ago`}
                       </span>
-                      <span className="led" style={{ fontSize: 12, color: e.status === "settled" ? "var(--jade)" : "var(--gold-hi)", textAlign: "right" }}>
-                        ${prizeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="led" style={{ fontSize: 12, color: prizeColor, textAlign: "right" }}>
+                        {isPending ? "—" : `$${prizeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
                   );

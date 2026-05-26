@@ -62,13 +62,6 @@ export const casteHookAbi = [
   },
   {
     type: "function",
-    name: "settleHourly",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "epoch", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    type: "function",
     name: "settleMega",
     stateMutability: "nonpayable",
     inputs: [],
@@ -104,13 +97,6 @@ export const casteHookAbi = [
   },
   {
     type: "function",
-    name: "epochLastBuyer",
-    stateMutability: "view",
-    inputs: [{ name: "epoch", type: "uint256" }],
-    outputs: [{ name: "", type: "address" }],
-  },
-  {
-    type: "function",
     name: "hourlyPool",
     stateMutability: "view",
     inputs: [{ name: "epoch", type: "uint256" }],
@@ -121,6 +107,65 @@ export const casteHookAbi = [
     name: "megaPool",
     stateMutability: "view",
     inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  // Wave-3 hourly redesign view surface — auto-settle pointers + per-epoch data.
+  {
+    type: "function",
+    name: "lastBuyEpoch",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "nextToSettle",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "epochInfo",
+    stateMutability: "view",
+    inputs: [{ name: "epoch", type: "uint256" }],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        components: [
+          { name: "startBlock", type: "uint64" },
+          { name: "anchorBlock", type: "uint64" },
+          { name: "totalWeight", type: "uint64" },
+          { name: "settled", type: "bool" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "epochEntry",
+    stateMutability: "view",
+    inputs: [
+      { name: "epoch", type: "uint256" },
+      { name: "idx", type: "uint256" },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        components: [
+          { name: "buyer", type: "address" },
+          { name: "cumWeight", type: "uint64" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "epochEntryCount",
+    stateMutability: "view",
+    inputs: [{ name: "epoch", type: "uint256" }],
     outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;

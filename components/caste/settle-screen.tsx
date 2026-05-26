@@ -3,7 +3,8 @@
 import { useAccount } from "wagmi";
 
 import { useHourlyEpochs, useMegaSettlements, useStats } from "@/lib/caste/hooks";
-import { useSettleHourly, useSettleMega } from "@/lib/caste/writes";
+import { useSettleMega } from "@/lib/caste/writes";
+import type { HourlyEpochRow } from "@/lib/caste/response-types";
 
 const ONE_E6 = 10n ** 6n;
 
@@ -12,8 +13,39 @@ function shortAddr(a?: string | null): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-function bigToNum(s: string): number {
+function bigToNum(s: string | null | undefined): number {
+  if (!s) return 0;
   return Number(BigInt(s) / ONE_E6);
+}
+
+// One-line status summary for a recent epoch row. Handles all four Wave-3
+// states so a glance at the list communicates each round's fate.
+function epochStatusLine(e: HourlyEpochRow): { label: string; tone: string } {
+  const prizeUsd = bigToNum(e.prize);
+  const prizeStr = `$${prizeUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  switch (e.status) {
+    case "settled":
+      return {
+        label: `Won by ${shortAddr(e.winner)} for ${prizeStr}`,
+        tone: "var(--jade)",
+      };
+    case "rolledOver":
+      return {
+        label: `Rolled to ${e.target === "mega" ? "mega pool" : `epoch ${e.target}`} (${prizeStr})`,
+        tone: "var(--gold-hi)",
+      };
+    case "expiredToMega":
+      return {
+        label: `Expired → mega pool (${prizeStr})`,
+        tone: "var(--gold-hi)",
+      };
+    case "pending":
+    default:
+      return {
+        label: "Pending settle",
+        tone: "var(--ink-700)",
+      };
+  }
 }
 
 export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) {
@@ -22,10 +54,7 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
   const { data: hourly = [] } = useHourlyEpochs(20);
   const { data: mega = [] } = useMegaSettlements();
   const { data: stats } = useStats();
-  const settleHourly = useSettleHourly();
   const settleMega = useSettleMega();
-  // The most-recent completed hourly epoch ID is (now/3600) - 1; we offer to settle it.
-  const settleableEpoch = Math.floor(Date.now() / 1000 / 3600) - 1;
   const canSettleMega = (stats?.fomoSecondsLeft ?? 1) === 0;
 
   const latestHourly = hourly.find((h) => h.status === "settled");
@@ -66,6 +95,12 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
           <div className="mono" style={{ fontSize: 14, color: "var(--ink-700)", letterSpacing: "0.2em", marginTop: 18 }}>
             NO {isHourly ? "HOURLY EPOCHS" : "MEGA ROUNDS"} SETTLED YET
           </div>
+          {isHourly && (
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.15em", marginTop: 12, lineHeight: 1.6, maxWidth: 520 }}>
+              ▸ Hourly draws auto-settle inside the next buy after the hour rolls.
+              <br />▸ Winner is drawn from tickets recorded that hour — proportional to weight.
+            </div>
+          )}
         </div>
       </div>
     );
@@ -108,7 +143,7 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
 
       <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "80px 60px", textAlign: "center" }}>
         <div className="mono" style={{ fontSize: 13, color: tone, letterSpacing: "0.4em" }}>
-          {isHourly ? "settleHourly(epoch)" : "settleMega()"} · CONFIRMED
+          {isHourly ? "auto-settled in beforeBuy" : "settleMega()"} · CONFIRMED
         </div>
 
         <h1 style={{ margin: 0, lineHeight: 0.86 }}>
@@ -140,29 +175,20 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
 
         <div style={{ marginTop: 18, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
           {isHourly ? (
-            <button
-              disabled={!isConnected || settleHourly.isPending}
-              onClick={() => settleHourly.mutate({ epoch: settleableEpoch })}
-              title={!isConnected ? "Connect wallet to settle" : ""}
+            <div
               style={{
                 padding: "14px 28px",
-                background: !isConnected || settleHourly.isPending ? "var(--ink-300)" : tone,
-                color: !isConnected || settleHourly.isPending ? "var(--ink-600)" : "var(--ink-000)",
+                background: "transparent",
+                color: tone,
                 fontFamily: "var(--f-display)",
-                fontSize: 14,
+                fontSize: 13,
                 letterSpacing: "0.15em",
-                border: "none",
+                border: `1px dashed ${tone}`,
                 borderRadius: 4,
-                cursor: !isConnected || settleHourly.isPending ? "not-allowed" : "pointer",
-                boxShadow: !isConnected || settleHourly.isPending ? "none" : `0 6px 0 ${toneSoft}`,
               }}
             >
-              {!isConnected
-                ? "CONNECT WALLET TO SETTLE"
-                : settleHourly.isPending
-                ? "SETTLING…"
-                : `▸ settleHourly(${settleableEpoch})`}
-            </button>
+              ▸ HOURLY AUTO-SETTLES ON NEXT BUY · NO USER ACTION NEEDED
+            </div>
           ) : (
             <button
               disabled={!isConnected || !canSettleMega || settleMega.isPending}
@@ -198,23 +224,73 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
                 : "FOMO NOT EXPIRED"}
             </button>
           )}
-          {(isHourly ? settleHourly : settleMega).isError && (
+          {!isHourly && settleMega.isError && (
             <span className="mono" style={{ fontSize: 11, color: "var(--blood-hi)" }}>
-              ✗ {(isHourly ? settleHourly : settleMega).error?.message ?? "tx failed"}
+              ✗ {settleMega.error?.message ?? "tx failed"}
             </span>
           )}
-          {(isHourly ? settleHourly : settleMega).isSuccess && (
+          {!isHourly && settleMega.isSuccess && (
             <span className="mono" style={{ fontSize: 11, color: "var(--jade)" }}>
               ✓ settled
             </span>
           )}
         </div>
+
+        {isHourly && hourly.length > 0 && (
+          <div
+            style={{
+              marginTop: 24,
+              width: "100%",
+              maxWidth: 760,
+              padding: 18,
+              border: `1px solid ${tone}`,
+              borderRadius: 6,
+              background: "oklch(0.10 0.02 60 / 0.6)",
+            }}
+          >
+            <div
+              className="mono"
+              style={{ fontSize: 11, color: tone, letterSpacing: "0.25em", marginBottom: 10, textAlign: "left" }}
+            >
+              RECENT EPOCHS · LAST {Math.min(hourly.length, 8)}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {hourly.slice(0, 8).map((e) => {
+                const { label, tone: rowTone } = epochStatusLine(e);
+                return (
+                  <div
+                    key={e.epochId}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "100px 1fr 80px",
+                      gap: 10,
+                      padding: "6px 8px",
+                      borderBottom: "1px dashed var(--ink-400)",
+                      alignItems: "center",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.1em" }}>
+                      ep {e.epochId.slice(-6)}
+                    </span>
+                    <span className="mono" style={{ fontSize: 11, color: rowTone, letterSpacing: "0.05em" }}>
+                      {label}
+                    </span>
+                    <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", textAlign: "right" }}>
+                      {typeof e.totalWeight === "number" ? `${e.totalWeight} tix` : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ position: "absolute", bottom: 36, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
         <div className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--ink-700)" }}>
           {isHourly
-            ? "▸ HOURLY ROLLS FORWARD ON EMPTY EPOCH · NEXT BUY BECOMES NEXT WINNER"
+            ? "▸ HOURLY ROLLS FORWARD ON EMPTY EPOCH · AUTO-SETTLES INSIDE THE NEXT BUY"
             : "▸ MEGA ROUND RESETS · FOMO DEADLINE = NOW + 24h · POOL STARTS AT $0"}
         </div>
       </div>

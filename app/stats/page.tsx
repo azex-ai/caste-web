@@ -261,7 +261,7 @@ export default function StatsV1Page() {
               ["UNIT", "$6.66666 USDC", "= 6_666_660 raw"],
               ["MIN_BATCH_UNITS", "1", "1 × UNIT min"],
               ["MAX_BATCH_UNITS", "100", "$666.666 max"],
-              ["MAX_CARDS_PER_BUY", "4", "hard cap per swap"],
+              ["CARDS_PER_UNIT", "1", "1 unit = 1 sealed card"],
               ["MAX_CARDS", "10,000", "protocol-life cap"],
             ]}
           />

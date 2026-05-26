@@ -3,8 +3,10 @@
 // - buyCaste(units)        — USDC approve + PoolSwapTest.swap(zeroForOne=true)
 // - sellCaste(amount)      — CASTE approve + PoolSwapTest.swap(zeroForOne=false)
 // - flipCard(tokenId)      — hook.flipCard(tokenId)
-// - settleHourly(epoch)    — hook.settleHourly(epoch)
 // - settleMega()           — hook.settleMega()
+//
+// Note: hourly settle is performed automatically by the hook inside _beforeBuy
+// on subsequent buys (Wave-3 redesign). No external settleHourly call exists.
 //
 // All take a wagmi config + signer; helpers encode args, returning the tx hash.
 
@@ -40,7 +42,6 @@ export const txKeys = {
   sell: ["caste-tx", "sell"] as const,
   flip: ["caste-tx", "flip"] as const,
   flipBatch: ["caste-tx", "flip-batch"] as const,
-  settleHourly: ["caste-tx", "settle-hourly"] as const,
   settleMega: ["caste-tx", "settle-mega"] as const,
 };
 
@@ -172,29 +173,6 @@ export function useFlipBatch() {
         abi: casteHookAbi,
         functionName: "flipBatch",
         args: [tokenIds],
-        chainId: activeChainId,
-      })) as Hash;
-      const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
-      return { hash, blockNumber: receipt.blockNumber };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["caste"] });
-    },
-  });
-}
-
-export function useSettleHourly() {
-  const config = useConfig();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationKey: txKeys.settleHourly,
-    mutationFn: async ({ epoch }: { epoch: bigint | number }) => {
-      const e = typeof epoch === "number" ? BigInt(epoch) : epoch;
-      const hash = (await writeContract(config, {
-        address: addresses.hook,
-        abi: casteHookAbi,
-        functionName: "settleHourly",
-        args: [e],
         chainId: activeChainId,
       })) as Hash;
       const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });

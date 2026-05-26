@@ -211,8 +211,8 @@ export default function LeaderboardV1Page() {
 
           <div style={{ marginTop: 14, padding: 14, border: "1px dashed var(--jade)", borderRadius: 6, background: "oklch(0.20 0.08 155 / 0.12)" }}>
             <div className="mono" style={{ fontSize: 11, color: "var(--jade)", letterSpacing: "0.15em", lineHeight: 1.7 }}>
-              ▸ <strong>How it works:</strong> every buy writes <code>epochLastBuyer[block.timestamp / 1h] = buyer</code>. After the epoch ends, anyone can call{" "}
-              <code>settleHourly(epoch)</code> to pay that buyer the full pool. Empty epochs roll the pool into the next epoch&apos;s pot.
+              ▸ <strong>How it works:</strong> every buy logs a weighted ticket in the current hourly epoch. After the hour rolls, the next buy{" "}
+              <strong>auto-settles</strong> the prior epoch inside <code>beforeSwap</code> — winner is drawn proportional to ticket weight. Empty epochs roll the pool forward into the next epoch&apos;s pot.
             </div>
           </div>
         </div>
