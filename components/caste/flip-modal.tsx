@@ -405,7 +405,7 @@ function FlippingStage() {
             PAYOUT (BUFFER)
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 6 }}>
-            <div className="led" style={{ fontSize: 44, color: "var(--gold-hi)", textShadow: "0 0 18px var(--gold)" }}>
+            <div className="led" style={{ fontSize: 36, color: "var(--gold-hi)", textShadow: "0 0 18px var(--gold)" }}>
               ···
             </div>
             <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)" }}>

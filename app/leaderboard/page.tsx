@@ -20,7 +20,11 @@ function shortAddr(a?: string | null): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-function bigToNum(s: string, scale: bigint): number {
+function bigToNum(s: string | null | undefined, scale: bigint): number {
+  // Hourly epoch rows can carry a null prize when the indexer hasn't seen
+  // a HourlySettled / FomoDeadlineUpdated event for that epoch yet — treat
+  // missing values as 0 instead of crashing the page on BigInt(null).
+  if (s == null) return 0;
   return Number(BigInt(s) / scale);
 }
 
@@ -109,11 +113,11 @@ export default function LeaderboardV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>/CASTE/LEADERBOARD · LAST-BUYER WINS</div>
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>Winners</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>Winners</span>
             <span className="display" style={{ fontSize: 28, color: "var(--gold-hi)" }}>/ V1 · LAST-BUYER MODEL</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", marginTop: 12, maxWidth: 820, lineHeight: 1.65 }}>
@@ -124,7 +128,7 @@ export default function LeaderboardV1Page() {
         <Countdown hh="00" mm={hourlyMm} ss={hourlySs} state="warning" label="NEXT HOURLY DRAW" />
       </section>
 
-      <section style={{ padding: "12px 60px 28px" }}>
+      <section style={{ padding: "10px 40px 20px" }}>
         <div style={{ position: "relative", padding: 28, borderRadius: 8, background: "linear-gradient(135deg, oklch(0.18 0.06 82) 0%, oklch(0.10 0.02 60) 100%)", border: "1px solid var(--gold)", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
           <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr auto", gap: 36, alignItems: "center" }}>
@@ -147,7 +151,7 @@ export default function LeaderboardV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 40px", display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 28 }}>
+      <section style={{ padding: "14px 40px 28px", display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 28 }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
             <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Hourly · Last {hourlyEpochs.length || 8} Epochs</span>
@@ -279,7 +283,7 @@ export default function LeaderboardV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "10px 60px 60px" }}>
+      <section style={{ padding: "8px 40px 40px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Top Flippers</span>
           <span className="display" style={{ fontSize: 14, color: "var(--orchid)", letterSpacing: "0.2em" }}>

@@ -136,11 +136,11 @@ export default function ActivityV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>/CASTE/ACTIVITY · LIVE EVENT STREAM</div>
           <h1 style={{ margin: 0 }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>The Feed.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>The Feed.</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 820, marginTop: 12, lineHeight: 1.65 }}>
             Every on-chain event the hook + card emit, in time order.{" "}
@@ -150,7 +150,7 @@ export default function ActivityV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 28px" }}>
+      <section style={{ padding: "10px 40px 20px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
           <StatCard label="FLIPS"    value={counts.flips.toLocaleString()}   meta="cinema moments" tone="gold" />
           <StatCard label="SELLS"    value={counts.sells.toLocaleString()}   meta="sell tax events" tone="blood" />
@@ -159,7 +159,7 @@ export default function ActivityV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "0 60px 48px" }}>
+      <section style={{ padding: "0 40px 32px" }}>
         <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, overflow: "hidden", background: "var(--ink-200)" }}>
           {timeline.length === 0 && (
             <div style={{ padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 11, letterSpacing: "0.15em" }}>

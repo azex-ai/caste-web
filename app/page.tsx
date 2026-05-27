@@ -63,7 +63,7 @@ export default function LandingV1Page() {
     <div style={{ width: "100%" }}>
       <Ticker items={tickerItems} />
 
-      <section style={{ position: "relative", padding: "60px 60px 48px", overflow: "hidden" }}>
+      <section style={{ position: "relative", padding: "40px 40px 32px", overflow: "hidden" }}>
         <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
         <div style={{ position: "absolute", top: -240, right: -120, width: 720, height: 720, borderRadius: "50%", background: "radial-gradient(circle, oklch(0.78 0.18 82 / 0.10), transparent 65%)" }} />
 
@@ -76,8 +76,8 @@ export default function LandingV1Page() {
             </div>
 
             <h1 style={{ margin: 0, lineHeight: 0.86 }}>
-              <span className="display" style={{ display: "block", fontSize: 132, color: "var(--bone)", letterSpacing: "-0.02em" }}>BUY QUIET.</span>
-              <span className="display" style={{ display: "block", fontSize: 132, color: "var(--gold-hi)", letterSpacing: "-0.02em", marginTop: -4, textShadow: "0 0 50px oklch(0.78 0.18 82 / 0.25)" }}>FLIP LOUD.</span>
+              <span className="display" style={{ display: "block", fontSize: 88, color: "var(--bone)", letterSpacing: "-0.02em" }}>BUY QUIET.</span>
+              <span className="display" style={{ display: "block", fontSize: 88, color: "var(--gold-hi)", letterSpacing: "-0.02em", marginTop: -4, textShadow: "0 0 50px oklch(0.78 0.18 82 / 0.25)" }}>FLIP LOUD.</span>
             </h1>
 
             <p style={{ marginTop: 28, fontSize: 21, lineHeight: 1.55, color: "var(--bone-dim)", maxWidth: 580, fontWeight: 400 }}>
@@ -102,15 +102,15 @@ export default function LandingV1Page() {
             </div>
           </div>
 
-          <div style={{ position: "relative", height: 540, display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <div style={{ position: "absolute", transform: "rotate(-12deg) translate(-100px, 50px)", opacity: 0.85 }}>
-              <SealedCard tokenId={8423} commitBlock={22140221} buyUnits={12} bought="14s" w={240} h={345} showFlipBtn={false} />
+          <div style={{ position: "relative", height: 400, display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <div style={{ position: "absolute", transform: "rotate(-12deg) translate(-72px, 36px)", opacity: 0.85 }}>
+              <SealedCard tokenId={8423} commitBlock={22140221} buyUnits={12} bought="14s" w={172} h={248} showFlipBtn={false} />
             </div>
-            <div style={{ position: "absolute", transform: "rotate(8deg) translate(90px, -20px)", opacity: 0.9 }}>
-              <SealedCard tokenId={8422} commitBlock={22140221} buyUnits={12} bought="14s" w={240} h={345} showFlipBtn={false} />
+            <div style={{ position: "absolute", transform: "rotate(8deg) translate(64px, -14px)", opacity: 0.9 }}>
+              <SealedCard tokenId={8422} commitBlock={22140221} buyUnits={12} bought="14s" w={172} h={248} showFlipBtn={false} />
             </div>
-            <div style={{ position: "relative", filter: "drop-shadow(0 24px 40px rgb(0 0 0 / 0.55))" }}>
-              <SealedCard tokenId={8421} commitBlock={22140221} buyUnits={12} bought="14s" w={260} h={372} showFlipBtn={false} />
+            <div style={{ position: "relative", filter: "drop-shadow(0 18px 30px rgb(0 0 0 / 0.55))" }}>
+              <SealedCard tokenId={8421} commitBlock={22140221} buyUnits={12} bought="14s" w={188} h={268} showFlipBtn={false} />
             </div>
             <div style={{ position: "absolute", bottom: 4, right: 4 }}>
               <div className="hk-banner" style={{ fontSize: 13 }}>face-down · RNG locks at flip</div>
@@ -119,12 +119,12 @@ export default function LandingV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "0 60px 48px" }}>
+      <section style={{ padding: "0 40px 32px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 14 }}>
           <div style={{ position: "relative", padding: "26px 30px", background: "linear-gradient(135deg, oklch(0.18 0.06 82), oklch(0.10 0.02 82))", border: "1px solid var(--gold)", borderRadius: 6, overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
             <div className="mono" style={{ fontSize: 10, letterSpacing: "0.3em", color: "var(--gold-hi)", marginBottom: 8 }}>MEGA FOMO · DEADLINE COUNTDOWN</div>
-            <div className="led" style={{ fontSize: 64, color: "var(--gold-hi)", lineHeight: 0.9, textShadow: "var(--glow-gold)" }}>{megaHh}:{megaMm}:{megaSs}</div>
+            <div className="led" style={{ fontSize: 48, color: "var(--gold-hi)", lineHeight: 0.9, textShadow: "var(--glow-gold)" }}>{megaHh}:{megaMm}:{megaSs}</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 10 }}>
               <div className="mono" style={{ fontSize: 11, color: "var(--bone-dim)" }}>any buy extends · cap +24h</div>
               <Countdown hh={megaHh} mm={megaMm} ss={megaSs} state={fomoLeft < 600 ? "critical" : fomoLeft < 3600 ? "warning" : "calm"} label="DEADLINE" />
@@ -136,9 +136,9 @@ export default function LandingV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 48px" }}>
+      <section style={{ padding: "14px 40px 32px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 28 }}>
-          <span className="display" style={{ fontSize: 48, color: "var(--bone)" }}>How V1 Plays</span>
+          <span className="display" style={{ fontSize: 36, color: "var(--bone)" }}>How V1 Plays</span>
           <span className="display" style={{ fontSize: 18, color: "var(--ink-700)", letterSpacing: "0.2em" }}>QUIET / LOUD / DONE</span>
           <div style={{ flex: 1, height: 1, background: "var(--ink-400)" }} />
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)" }}>01 · 02 · 03</span>
@@ -151,7 +151,7 @@ export default function LandingV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 48px" }}>
+      <section style={{ padding: "14px 40px 32px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 22 }}>
           <span className="display" style={{ fontSize: 36, color: "var(--bone)" }}>Where the Money Goes</span>
           <span className="display" style={{ fontSize: 14, color: "var(--ink-700)", letterSpacing: "0.2em" }}>BUY 1.5% · PHASE A SELL 25%</span>
@@ -180,7 +180,7 @@ export default function LandingV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 48px" }}>
+      <section style={{ padding: "14px 40px 32px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 28, color: "var(--bone)" }}>Recent Flips</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>· LIVE</span>
@@ -226,7 +226,7 @@ function Step({ num, en, color, body, kicker }: { num: string; en: string; color
   return (
     <div style={{ padding: "28px 24px 24px", borderRight: "1px solid var(--ink-400)", background: "var(--ink-200)" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
-        <span className="display" style={{ fontSize: 56, color, lineHeight: 0.8 }}>{num}</span>
+        <span className="display" style={{ fontSize: 40, color, lineHeight: 0.8 }}>{num}</span>
         <div className="display" style={{ fontSize: 18, color: "var(--bone)", letterSpacing: "0.1em" }}>{en}</div>
       </div>
       <p style={{ fontSize: 13, color: "var(--bone-dim)", lineHeight: 1.65, margin: 0 }}>{body}</p>

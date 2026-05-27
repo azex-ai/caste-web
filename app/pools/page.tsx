@@ -71,11 +71,11 @@ export default function PoolsV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>/CASTE/POOLS · 4-POOL ARCHITECTURE</div>
           <h1 style={{ margin: 0 }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>The Four Pools.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>The Four Pools.</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 820, marginTop: 12, lineHeight: 1.65 }}>
             V1 collapses the old five-bucket fee model into <strong style={{ color: "var(--bone)" }}>four pools, two flows</strong>:
@@ -89,7 +89,7 @@ export default function PoolsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 28px" }}>
+      <section style={{ padding: "14px 40px 20px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
           <PoolSummaryCard color="var(--cobalt)"  label="01 · LP"          value="16.8B"                                                       subValue="USDC fill from chain" meta="single-sided · permanent · JIT-locked 64 blk · live read pending" emoji="LP" />
           <PoolSummaryCard color="var(--orchid)"  label="02 · CARD BUFFER" value={`${(bufferRemaining / 1e9).toFixed(2)}B`}                    subValue={`${bufferPct.toFixed(1)}% remaining`}      meta="one-way drain · flip payouts only" emoji="BUF" />
@@ -98,7 +98,7 @@ export default function PoolsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 24px" }}>
+      <section style={{ padding: "10px 40px 18px" }}>
         <div style={{ position: "relative", padding: "32px 36px", borderRadius: 8, background: "linear-gradient(135deg, oklch(0.20 0.10 82) 0%, oklch(0.08 0.02 60) 100%)", border: "1px solid var(--gold)", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, var(--gold-hi), var(--gold), var(--gold-hi))" }} />
           <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.12 }} />
@@ -179,7 +179,7 @@ export default function PoolsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+      <section style={{ padding: "14px 40px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
             <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Card Buffer</span>
@@ -252,14 +252,14 @@ export default function PoolsV1Page() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
               <div>
                 <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em" }}>THIS HOUR · POOL</div>
-                <div className="led" style={{ fontSize: 48, color: "var(--bone)", lineHeight: 0.9, marginTop: 6 }}>
+                <div className="led" style={{ fontSize: 36, color: "var(--bone)", lineHeight: 0.9, marginTop: 6 }}>
                   ${hourlyPoolUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>inflow: 1% of buys · 16.67% of Phase A sells</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>DRAWS IN</div>
-                <div className="led" style={{ fontSize: 40, color: "var(--gold-hi)", lineHeight: 0.9, marginTop: 6 }}>
+                <div className="led" style={{ fontSize: 32, color: "var(--gold-hi)", lineHeight: 0.9, marginTop: 6 }}>
                   {drawMm}:{drawSs}
                 </div>
                 <div
@@ -345,7 +345,7 @@ export default function PoolsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 28px" }}>
+      <section style={{ padding: "14px 40px 20px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>LP · Single-Sided · Permanently Locked</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--cobalt)", letterSpacing: "0.2em" }}>· NO WITHDRAW FN · JIT 64 BLK</span>
@@ -365,19 +365,19 @@ export default function PoolsV1Page() {
         >
           <div>
             <div className="mono" style={{ fontSize: 10, color: "var(--acid)", letterSpacing: "0.25em", marginBottom: 6 }}>CASTE SIDE · ASKS-ONLY</div>
-            <div className="led" style={{ fontSize: 44, color: "var(--bone)" }}>16.8B</div>
+            <div className="led" style={{ fontSize: 36, color: "var(--bone)" }}>16.8B</div>
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>
               initial · placed in [startTick − 46020, startTick − 1] · live read pending
             </div>
           </div>
           <div>
             <div className="mono" style={{ fontSize: 10, color: "var(--cobalt)", letterSpacing: "0.25em", marginBottom: 6 }}>USDC ACCUMULATED</div>
-            <div className="led" style={{ fontSize: 44, color: "var(--bone)" }}>—</div>
+            <div className="led" style={{ fontSize: 36, color: "var(--bone)" }}>—</div>
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>fills as buyers walk up the ask ladder · live read pending</div>
           </div>
           <div>
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.25em", marginBottom: 6 }}>JIT LOCKOUT</div>
-            <div className="led" style={{ fontSize: 44, color: "var(--blood-hi)" }}>64 BLK</div>
+            <div className="led" style={{ fontSize: 36, color: "var(--blood-hi)" }}>64 BLK</div>
             <div className="mono" style={{ fontSize: 10, color: "var(--ink-700)", marginTop: 4 }}>beforeRemoveLiquidity reverts if lpAddBlock + 64 ≥ now</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
@@ -394,7 +394,7 @@ export default function PoolsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 40px" }}>
+      <section style={{ padding: "14px 40px 28px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Where Each Dollar Goes</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.2em" }}>· 1.5% BUY · 25% / 1.5% SELL</span>

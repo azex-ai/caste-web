@@ -35,7 +35,12 @@ import {
 } from "./contracts";
 import { activeChainId } from "@/lib/wagmi";
 
-const MAX_UINT256 = (1n << 256n) - 1n;
+// Explicit gas ceiling for buy/sell swaps. Actual usage on Base for a typical
+// 4-unit buy is ~1M (verified via `cast estimate`); we set 3M as a safety
+// buffer. Without an explicit gas limit, MetaMask's own gas estimation can
+// fail on the hook call and fall back to a multi-million ceiling that the
+// Base public RPC rejects with "exceeds max transaction gas limit".
+const SWAP_GAS_LIMIT = 3_000_000n;
 
 export const txKeys = {
   buy: ["caste-tx", "buy"] as const,
@@ -65,11 +70,18 @@ async function ensureAllowance(
     chainId: activeChainId,
   })) as bigint;
   if (current >= needed) return;
+  // Approve the exact amount we need rather than MAX_UINT256. The infinite-
+  // approve pattern triggers MetaMask's heuristic that an unknown ERC20 with
+  // a 2^256-1 allowance is actually an ERC-721 collection — the confirmation
+  // dialog ends up titled "Withdrawal request · permission to withdraw your
+  // NFTs", which is alarming for users. Exact-amount approve avoids the
+  // misread; the trade-off is one approve tx per buy, which is fine for the
+  // test deployment.
   const hash = (await writeContract(config, {
     address: token,
     abi: erc20Abi,
     functionName: "approve",
-    args: [spender, MAX_UINT256],
+    args: [spender, needed],
     chainId: activeChainId,
   })) as Hash;
   await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
@@ -97,6 +109,7 @@ export function useBuyCaste() {
           encodeHookData(address),
         ],
         chainId: activeChainId,
+        gas: SWAP_GAS_LIMIT,
       })) as Hash;
       const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };
@@ -128,6 +141,7 @@ export function useSellCaste() {
           encodeHookData(address),
         ],
         chainId: activeChainId,
+        gas: SWAP_GAS_LIMIT,
       })) as Hash;
       const receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
       return { hash, blockNumber: receipt.blockNumber };

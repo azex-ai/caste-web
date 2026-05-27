@@ -337,7 +337,7 @@ export function CardBack({ w = 260, h = 380 }: { w?: number; h?: number }) {
     >
       <div className="halftone" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <div className="display" style={{ fontSize: 64, color: "var(--bone)", letterSpacing: "0.1em" }}>?</div>
+        <div className="display" style={{ fontSize: 48, color: "var(--bone)", letterSpacing: "0.1em" }}>?</div>
         <div className="display" style={{ fontSize: 14, color: "var(--ink-700)", letterSpacing: "0.3em" }}>CASTE · UNREVEALED</div>
         <div className="mono" style={{ fontSize: 9, color: "var(--ink-600)", letterSpacing: "0.2em" }}>commit → 2-block delay → reveal</div>
       </div>

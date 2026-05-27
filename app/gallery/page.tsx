@@ -62,13 +62,13 @@ export default function GalleryV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
             /CASTE/GALLERY · SEALED · FLIPPED · MARKET
           </div>
           <h1 style={{ margin: 0 }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>The Gallery.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>The Gallery.</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 820, marginTop: 12, lineHeight: 1.65 }}>
             Two states, three lenses. <strong style={{ color: "var(--blood-hi)" }}>Sealed</strong> cards all look identical — uniform cover, serial only.
@@ -78,7 +78,7 @@ export default function GalleryV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 0" }}>
+      <section style={{ padding: "10px 40px 0" }}>
         <div style={{ display: "flex", borderBottom: "1px solid var(--ink-400)", gap: 4 }}>
           <Tab label={`MY SEALED · ${sealed.length}`} active color="var(--blood-hi)" />
           <Tab label={`MY FLIPPED · ${flipped.length}`} color="var(--gold-hi)" />
@@ -90,7 +90,7 @@ export default function GalleryV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "28px 60px 28px" }}>
+      <section style={{ padding: "20px 40px 20px" }}>
         <SectionHead title="My Sealed" color="var(--blood-hi)" note="FACE-DOWN · ATTRIBUTES UNKNOWN UNTIL FLIP" right={`${sealed.length} cards · 2 blk delay`} />
         {!address && (
           <EmptyState text="CONNECT WALLET TO VIEW YOUR CARDS" />
@@ -117,7 +117,7 @@ export default function GalleryV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 28px" }}>
+      <section style={{ padding: "10px 40px 20px" }}>
         <SectionHead
           title="My Flipped"
           color="var(--gold-hi)"
@@ -150,7 +150,7 @@ export default function GalleryV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 60px" }}>
+      <section style={{ padding: "10px 40px 40px" }}>
         <SectionHead
           title="Protocol Mythic Wall"
           color="var(--gold-hi)"

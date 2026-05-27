@@ -116,13 +116,13 @@ export default function SwapV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
             /CASTE/SWAP · QUIET MARKET BUY · SEALED CARDS APPEND
           </div>
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>Buy In.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>Buy In.</span>
             <span className="display" style={{ fontSize: 32, color: "var(--acid)" }}>/ TICKET, NOT REVEAL</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 760, marginTop: 12, lineHeight: 1.55 }}>
@@ -160,7 +160,7 @@ export default function SwapV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 36px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
+      <section style={{ padding: "14px 40px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
         <div style={{ border: "1px solid var(--ink-400)", borderRadius: 8, background: "var(--ink-200)", padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", borderBottom: "1px solid var(--ink-400)" }}>
             <div style={{ padding: "10px 18px", fontFamily: "var(--f-display)", fontSize: 14, color: "var(--acid)", borderBottom: "2px solid var(--acid)", marginBottom: -1, letterSpacing: "0.1em" }}>
@@ -247,7 +247,7 @@ export default function SwapV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 32px" }}>
+      <section style={{ padding: "14px 40px 22px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
           <span className="display" style={{ fontSize: 24, color: "var(--bone)" }}>Last Buyer Status</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
@@ -328,7 +328,7 @@ export default function SwapV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "12px 60px 36px" }}>
+      <section style={{ padding: "10px 40px 24px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 14 }}>
           <span className="display" style={{ fontSize: 22, color: "var(--bone)" }}>Recent Buys</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
@@ -390,7 +390,7 @@ function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number
       <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 56px", gap: 14, alignItems: "stretch" }}>
         <button style={stepBtn} onClick={() => setUnits(units - 1)} aria-label="decrement">−</button>
         <div style={{ textAlign: "center", padding: "6px 0", background: "var(--ink-000)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
-          <div className="led" style={{ fontSize: 84, color: "var(--acid)", lineHeight: 1, textShadow: "0 0 16px oklch(0.90 0.20 115 / 0.45)" }}>
+          <div className="led" style={{ fontSize: 56, color: "var(--acid)", lineHeight: 1, textShadow: "0 0 16px oklch(0.90 0.20 115 / 0.45)" }}>
             {units}
           </div>
           <div className="mono" style={{ fontSize: 10, letterSpacing: "0.35em", color: "var(--ink-600)", marginTop: 4 }}>UNITS</div>
@@ -501,7 +501,7 @@ function SealedPreview({
         </div>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span className="led" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>
+            <span className="led" style={{ fontSize: 40, color: "var(--bone)", lineHeight: 1 }}>
               {willMint}
             </span>
             <span className="display" style={{ fontSize: 16, color: "var(--bone-dim)", letterSpacing: "0.05em" }}>

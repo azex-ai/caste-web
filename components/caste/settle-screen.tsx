@@ -147,7 +147,7 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
         </div>
 
         <h1 style={{ margin: 0, lineHeight: 0.86 }}>
-          <span className="display" style={{ display: "block", fontSize: 56, color: "var(--bone)", letterSpacing: "-0.01em" }}>
+          <span className="display" style={{ display: "block", fontSize: 40, color: "var(--bone)", letterSpacing: "-0.01em" }}>
             {shortAddr(winner)}
           </span>
           <span className="display" style={{ display: "block", fontSize: 22, color: tone, letterSpacing: "0.2em", marginTop: 4 }}>

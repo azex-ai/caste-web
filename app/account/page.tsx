@@ -21,7 +21,11 @@ function shortAddr(a?: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-function bigToNum(s: string, scale: bigint): number {
+function bigToNum(s: string | null | undefined, scale: bigint): number {
+  // Mirror leaderboard's guard: indexer rows can carry null amount strings
+  // before the corresponding settle event lands. Treat as 0 instead of
+  // throwing on BigInt(null).
+  if (s == null) return 0;
   return Number(BigInt(s) / scale);
 }
 
@@ -78,11 +82,11 @@ export default function AccountV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 28px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>/CASTE/ACCOUNT · V1</div>
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-            <span className="display" style={{ fontSize: 64, color: "var(--bone)", lineHeight: 1 }}>{shortAddr(address)}</span>
+            <span className="display" style={{ fontSize: 48, color: "var(--bone)", lineHeight: 1 }}>{shortAddr(address)}</span>
           </h1>
           {tHi && (
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 14 }}>
@@ -102,7 +106,7 @@ export default function AccountV1Page() {
       </section>
 
       {!address && (
-        <section style={{ padding: "0 60px 60px" }}>
+        <section style={{ padding: "0 40px 40px" }}>
           <div style={{ padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 12, letterSpacing: "0.15em", border: "1px dashed var(--ink-400)", borderRadius: 6 }}>
             CONNECT WALLET TO SEE YOUR POSITION
           </div>
@@ -111,12 +115,12 @@ export default function AccountV1Page() {
 
       {address && (
         <>
-          <section style={{ padding: "12px 60px 28px" }}>
+          <section style={{ padding: "10px 40px 20px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr", gap: 14 }}>
               <div style={{ padding: 22, background: "linear-gradient(135deg, oklch(0.20 0.12 115 / 0.25), var(--ink-200))", border: "1px solid var(--acid-lo)", borderRadius: 6, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--acid-lo), var(--acid), var(--acid-lo))" }} />
                 <div className="mono" style={{ fontSize: 10, letterSpacing: "0.25em", color: "var(--acid)", marginBottom: 8 }}>FLIP PAYOUTS</div>
-                <div className="led" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 0.9 }}>+{(totalPayout / 1e3).toFixed(0)}K</div>
+                <div className="led" style={{ fontSize: 40, color: "var(--bone)", lineHeight: 0.9 }}>+{(totalPayout / 1e3).toFixed(0)}K</div>
                 <div className="mono" style={{ fontSize: 11, color: "var(--jade)", marginTop: 14 }}>
                   lifetime CASTE from buffer · {totalFlipped} flips
                 </div>
@@ -128,7 +132,7 @@ export default function AccountV1Page() {
             </div>
           </section>
 
-          <section style={{ padding: "20px 60px 28px" }}>
+          <section style={{ padding: "14px 40px 20px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
               <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Tier Counter</span>
               <span className="display" style={{ fontSize: 14, color: "var(--orchid)", letterSpacing: "0.2em" }}>
@@ -182,7 +186,7 @@ export default function AccountV1Page() {
             </div>
           </section>
 
-          <section style={{ padding: "20px 60px 40px" }}>
+          <section style={{ padding: "14px 40px 28px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
               <span className="display" style={{ fontSize: 28, color: "var(--bone)" }}>Top Flips</span>
               <span className="mono" style={{ fontSize: 10, color: "var(--gold-hi)", letterSpacing: "0.2em" }}>· TOP {topFlipped.length} BY PAYOUT</span>
@@ -220,7 +224,7 @@ export default function AccountV1Page() {
           </section>
 
           {(pos?.megaWins ?? 0) + (pos?.hourlyWins ?? 0) > 0 && (
-            <section style={{ padding: "0 60px 40px" }}>
+            <section style={{ padding: "0 40px 28px" }}>
               <div style={{ border: "1px solid var(--jade)", borderRadius: 6, background: "oklch(0.20 0.08 155 / 0.10)", padding: 18 }}>
                 <div className="display" style={{ fontSize: 13, color: "var(--jade)", letterSpacing: "0.1em", marginBottom: 8 }}>
                   LOTTERY · LIFETIME

@@ -84,13 +84,13 @@ export default function MyCardsPage() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
             /CASTE/MYCARDS · YOUR SEALED + FLIPPED
           </div>
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>My Cards.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>My Cards.</span>
             <span className="display" style={{ fontSize: 28, color: "var(--blood-hi)" }}>
               / {sealed.length} UNREVEALED
             </span>
@@ -138,7 +138,7 @@ export default function MyCardsPage() {
         </div>
       </section>
 
-      <section style={{ padding: "28px 60px 36px" }}>
+      <section style={{ padding: "20px 40px 24px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 22, color: "var(--blood-hi)", letterSpacing: "0.05em" }}>
             Awaiting flip
@@ -171,15 +171,15 @@ export default function MyCardsPage() {
                 bought={`${buyAgo} ago`}
                 canFlip={canFlip && !flipMutation.isPending}
                 onFlip={() => flipMutation.mutate({ tokenId: BigInt(c.tokenId) })}
-                w={280}
-                h={400}
+                w={210}
+                h={300}
               />
             );
           })}
         </div>
       </section>
 
-      <section style={{ padding: "16px 60px 36px" }}>
+      <section style={{ padding: "12px 40px 24px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 22, color: "var(--gold-hi)", letterSpacing: "0.05em" }}>Already flipped</span>
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-700)", letterSpacing: "0.15em" }}>
@@ -201,7 +201,7 @@ export default function MyCardsPage() {
             const ago = c.flipTime ? fmtAgo(nowSec - Number(c.flipTime)) : "—";
             return (
               <div key={c.tokenId} style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-                <CasteCard card={card} w={280} h={400} />
+                <CasteCard card={card} w={210} h={300} />
                 <div className="mono" style={{ fontSize: 9, color: "var(--gold-hi)", letterSpacing: "0.15em" }}>
                   FLIP PAYOUT · +{fmtCaste(payoutCaste)} CASTE
                 </div>

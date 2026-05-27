@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ConnectButton } from "./connect-button";
 import { LocaleSwitcher } from "./locale-switcher";
+import { PricePill } from "./price-pill";
 
 const NAV_ITEMS = [
   { href: "/",             label: "/home" },
@@ -121,6 +122,7 @@ export function CasteNav() {
       </nav>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <PricePill />
         <LocaleSwitcher />
         <ConnectButton />
       </div>

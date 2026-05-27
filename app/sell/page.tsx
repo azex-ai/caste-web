@@ -101,13 +101,13 @@ export default function SellV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
+      <section style={{ padding: "28px 40px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40, flexWrap: "wrap" }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
             /CASTE/SELL · PHASE A · MINT-WINDOW TAX
           </div>
           <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-            <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>Cash Out.</span>
+            <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>Cash Out.</span>
             <span className="display" style={{ fontSize: 32, color: "var(--blood-hi)" }}>/ TAX IS 25% UNTIL ALL 10K MINT</span>
           </h1>
           <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 800, marginTop: 12, lineHeight: 1.55 }}>
@@ -140,7 +140,7 @@ export default function SellV1Page() {
           ctaLabel="→ BUY $CASTE"
         />
       ) : (
-        <section style={{ padding: "20px 60px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
+        <section style={{ padding: "14px 40px 18px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 28, alignItems: "flex-start" }}>
           <SellComposer
             amount={sellAmount}
             amountWei={sellAmountWei}
@@ -161,7 +161,7 @@ export default function SellV1Page() {
       )}
 
       {hasBalance && (
-        <section style={{ padding: "32px 60px 60px" }}>
+        <section style={{ padding: "22px 40px 40px" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 18 }}>
             <span className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--jade)" }}>
               ● FUTURE STATE · WHEN ALL 10K MINT
@@ -213,8 +213,8 @@ type Phase = "A" | "B";
 
 function EmptyState({ headline, hint, ctaHref, ctaLabel }: { headline: string; hint: string; ctaHref?: string; ctaLabel?: string }) {
   return (
-    <section style={{ padding: "60px 60px 40px" }}>
-      <div style={{ padding: 36, border: "1px dashed var(--ink-400)", borderRadius: 8, background: "var(--ink-200)", textAlign: "center" }}>
+    <section style={{ padding: "40px 40px 28px" }}>
+      <div style={{ padding: 24, border: "1px dashed var(--ink-400)", borderRadius: 8, background: "var(--ink-200)", textAlign: "center" }}>
         <div className="display" style={{ fontSize: 28, color: "var(--bone)", marginBottom: 8 }}>{headline}</div>
         <div className="mono" style={{ fontSize: 12, color: "var(--ink-700)", letterSpacing: "0.05em", marginBottom: ctaHref ? 22 : 0 }}>{hint}</div>
         {ctaHref && ctaLabel && (
@@ -295,7 +295,7 @@ function SellComposer({
             <div className="mono" style={{ fontSize: 9, color: accent, letterSpacing: "0.25em" }}>
               {phase === "A" ? "PHASE A · MINT WINDOW" : "PHASE B · FREE TRADING"} · SELL TAX
             </div>
-            <div className="led" style={{ fontSize: 96, color: accent, lineHeight: 0.9, textShadow: `0 0 24px ${accent}, 0 0 6px ${accent}` }}>
+            <div className="led" style={{ fontSize: 64, color: accent, lineHeight: 0.9, textShadow: `0 0 24px ${accent}, 0 0 6px ${accent}` }}>
               {taxPct}%
             </div>
           </div>
@@ -328,7 +328,7 @@ function SellComposer({
       <div style={{ border: "1px solid var(--ink-400)", borderRadius: 6, padding: "16px 18px", background: "var(--ink-100)" }}>
         <div className="mono" style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--ink-600)" }}>YOU SELL · $CASTE</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 6 }}>
-          <div className="led" style={{ fontSize: 56, color: "var(--bone)" }}>{fmtNum(amount)}</div>
+          <div className="led" style={{ fontSize: 40, color: "var(--bone)" }}>{fmtNum(amount)}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: "1px solid var(--acid-lo)", borderRadius: 999 }}>
             <div style={{ width: 18, height: 18, borderRadius: 4, background: "var(--acid)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-000)", fontSize: 10, fontWeight: 900 }}>
               ◇
@@ -393,7 +393,7 @@ function SellComposer({
           YOU RECEIVE · USDC after {taxPct}% tax
         </div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 6 }}>
-          <div className="led" style={{ fontSize: 48, color: accent }}>{priceKnown ? `$${fmt(usdcNet)}` : "—"}</div>
+          <div className="led" style={{ fontSize: 36, color: accent }}>{priceKnown ? `$${fmt(usdcNet)}` : "—"}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", border: "1px solid var(--ink-400)", borderRadius: 999 }}>
             <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--cobalt)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--bone)", fontSize: 10, fontWeight: 700 }}>$</div>
             <span className="mono" style={{ fontSize: 12, color: "var(--bone)" }}>USDC</span>

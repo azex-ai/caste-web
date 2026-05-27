@@ -43,7 +43,7 @@ export default function CardDetailV1Page({ params }: { params: Promise<{ id: str
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 16px" }}>
+      <section style={{ padding: "28px 40px 12px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
           <Link href="/mycards" className="mono" style={{ fontSize: 11, color: "var(--ink-700)", letterSpacing: "0.2em", textDecoration: "none" }}>
             ← /mycards
@@ -51,7 +51,7 @@ export default function CardDetailV1Page({ params }: { params: Promise<{ id: str
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.3em" }}>· /CASTE/CARD/{tokenId}</span>
         </div>
         <h1 style={{ margin: 0, display: "flex", alignItems: "baseline", gap: 18, flexWrap: "wrap" }}>
-          <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>#{tokenId}</span>
+          <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>#{tokenId}</span>
           {card && (
             <span className="display" style={{ fontSize: 22, color: card.flipped ? "var(--gold-hi)" : "var(--blood-hi)" }}>
               · {card.flipped ? "REVEALED" : "SEALED"}
@@ -61,7 +61,7 @@ export default function CardDetailV1Page({ params }: { params: Promise<{ id: str
       </section>
 
       {isLoading && (
-        <section style={{ padding: "0 60px 60px" }}>
+        <section style={{ padding: "0 40px 40px" }}>
           <div style={{ padding: 24, textAlign: "center", color: "var(--ink-600)", fontFamily: "var(--f-mono)", fontSize: 12, letterSpacing: "0.15em" }}>
             LOADING CARD #{tokenId}…
           </div>
@@ -69,7 +69,7 @@ export default function CardDetailV1Page({ params }: { params: Promise<{ id: str
       )}
 
       {error && (
-        <section style={{ padding: "0 60px 60px" }}>
+        <section style={{ padding: "0 40px 40px" }}>
           <div style={{ padding: 24, textAlign: "center", color: "var(--blood-hi)", fontFamily: "var(--f-mono)", fontSize: 12, letterSpacing: "0.15em", border: "1px dashed var(--blood-lo)", borderRadius: 6 }}>
             CARD NOT FOUND
           </div>
@@ -115,7 +115,7 @@ function SealedView({ tokenId, commitBlock, mintTime, owner, nowSec }: {
   nowSec: number;
 }) {
   return (
-    <section style={{ padding: "20px 60px 40px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+    <section style={{ padding: "14px 40px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
       <div>
         <div style={{ position: "relative", padding: 30, border: "1px solid var(--blood-lo)", borderRadius: 8, background: "linear-gradient(135deg, oklch(0.20 0.10 25 / 0.18), var(--ink-200))", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--blood-lo), var(--blood-hi), var(--blood-lo))" }} />
@@ -180,7 +180,7 @@ function FlippedView({ tokenId, tier, variant, signature, traits, multiplierBp, 
   const multX = multiplierBp / 10000;
 
   return (
-    <section style={{ padding: "20px 60px 40px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+    <section style={{ padding: "14px 40px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
       <div>
         <div style={{ position: "relative", padding: 30, border: "1px solid var(--gold-hi)", borderRadius: 8, background: "linear-gradient(135deg, oklch(0.20 0.08 82 / 0.25), var(--ink-200))", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, var(--gold), var(--gold-hi), var(--gold))" }} />
@@ -229,7 +229,7 @@ function FlippedView({ tokenId, tier, variant, signature, traits, multiplierBp, 
 function FlipActionBar({ tokenId }: { tokenId: string }) {
   const flip = useFlipCard();
   return (
-    <section style={{ padding: "0 60px 40px" }}>
+    <section style={{ padding: "0 40px 28px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
         <button
           disabled={flip.isPending}

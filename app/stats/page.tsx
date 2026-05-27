@@ -41,12 +41,12 @@ export default function StatsV1Page() {
     <div>
       <Ticker items={tickerItems} />
 
-      <section style={{ padding: "44px 60px 28px" }}>
+      <section style={{ padding: "28px 40px 20px" }}>
         <div className="mono" style={{ fontSize: 11, letterSpacing: "0.3em", color: "var(--ink-600)", marginBottom: 8 }}>
           /CASTE/STATS · CONTRACTS · CONSTANTS · ENTROPY
         </div>
         <h1 style={{ margin: 0 }}>
-          <span className="display" style={{ fontSize: 80, color: "var(--bone)", lineHeight: 1 }}>The Numbers.</span>
+          <span className="display" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 1 }}>The Numbers.</span>
         </h1>
         <p style={{ fontSize: 15, color: "var(--ink-700)", maxWidth: 820, marginTop: 12, lineHeight: 1.65 }}>
           V1 is single-phase, sealed-mint, deferred-reveal. Three things you can verify before touching the contract: how the{" "}
@@ -55,7 +55,7 @@ export default function StatsV1Page() {
         </p>
       </section>
 
-      <section style={{ padding: "12px 60px 28px" }}>
+      <section style={{ padding: "10px 40px 20px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Phase Transition</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--blood-hi)", letterSpacing: "0.2em" }}>· A → B · IRREVERSIBLE · ATOMIC</span>
@@ -66,19 +66,19 @@ export default function StatsV1Page() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 18 }}>
             <div>
               <div className="mono" style={{ fontSize: 10, color: "var(--blood-hi)", letterSpacing: "0.25em" }}>PHASE A · NOW</div>
-              <div className="led" style={{ fontSize: 56, color: "var(--blood-hi)", lineHeight: 0.9 }}>25%</div>
+              <div className="led" style={{ fontSize: 40, color: "var(--blood-hi)", lineHeight: 0.9 }}>25%</div>
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginTop: 4 }}>sell tax · split 16.67 hourly / 8.33 mega</div>
             </div>
             <div>
               <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em" }}>{cardsMinted.toLocaleString()} / 10,000</div>
-              <div className="led" style={{ fontSize: 56, color: "var(--bone)", lineHeight: 0.9 }}>{phasePct.toFixed(1)}%</div>
+              <div className="led" style={{ fontSize: 40, color: "var(--bone)", lineHeight: 0.9 }}>{phasePct.toFixed(1)}%</div>
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginTop: 4 }}>
                 cards minted · {(cardsCap - cardsMinted).toLocaleString()} more to flip phase
               </div>
             </div>
             <div>
               <div className="mono" style={{ fontSize: 10, color: "var(--jade)", letterSpacing: "0.25em" }}>PHASE B · AFTER 10K</div>
-              <div className="led" style={{ fontSize: 56, color: "var(--jade)", lineHeight: 0.9 }}>1.5%</div>
+              <div className="led" style={{ fontSize: 40, color: "var(--jade)", lineHeight: 0.9 }}>1.5%</div>
               <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginTop: 4 }}>sell tax · split 1.0 hourly / 0.5 mega</div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function StatsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 28px" }}>
+      <section style={{ padding: "14px 40px 20px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Buffer Drain Math</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--orchid)", letterSpacing: "0.2em" }}>· ONE-WAY · GRACEFUL CAP ON DEPLETION</span>
@@ -156,7 +156,7 @@ export default function StatsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 28px" }}>
+      <section style={{ padding: "14px 40px 20px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Flip RNG · 7 Sources</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--cobalt)", letterSpacing: "0.2em" }}>· EXECUTION-TIME ENTROPY · NO ORACLE</span>
@@ -247,7 +247,7 @@ export default function StatsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "20px 60px 40px" }}>
+      <section style={{ padding: "14px 40px 28px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 18 }}>
           <span className="display" style={{ fontSize: 32, color: "var(--bone)" }}>Constants</span>
           <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.2em" }}>· FROM Constants.sol</span>
@@ -289,7 +289,7 @@ export default function StatsV1Page() {
         </div>
       </section>
 
-      <section style={{ padding: "10px 60px 60px" }}>
+      <section style={{ padding: "8px 40px 40px" }}>
         <div style={{ padding: 24, border: "1px dashed var(--ink-400)", borderRadius: 6, background: "var(--ink-200)" }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.25em", marginBottom: 14 }}>
             CONTRACT ADDRESSES · ETHEREUM MAINNET

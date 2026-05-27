@@ -41,7 +41,7 @@ export function Countdown({
         {[hh, mm, ss].map((part, i) => (
           <Fragment key={i}>
             <div style={{ position: "relative" }}>
-              <div className="led" style={{ fontSize: 56, color, textShadow: glow, fontVariantNumeric: "tabular-nums" }}>{part}</div>
+              <div className="led" style={{ fontSize: 40, color, textShadow: glow, fontVariantNumeric: "tabular-nums" }}>{part}</div>
               <div
                 className="mono"
                 style={{
@@ -58,7 +58,7 @@ export function Countdown({
             {i < 2 && (
               <div
                 className={"led" + (state === "critical" ? " breathe" : "")}
-                style={{ fontSize: 48, color, opacity: state === "critical" ? 1 : 0.4 }}
+                style={{ fontSize: 36, color, opacity: state === "critical" ? 1 : 0.4 }}
               >
                 :
               </div>
