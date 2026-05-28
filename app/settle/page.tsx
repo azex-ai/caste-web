@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { SettleScreen } from "@/components/caste/settle-screen";
 
 export const dynamic = "force-static";
@@ -10,7 +12,7 @@ export default async function SettlePage({ searchParams }: { searchParams: Searc
   return (
     <div style={{ padding: "40px 40px" }}>
       <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
-        <a
+        <Link
           href="/settle?kind=hourly"
           className="mono"
           style={{
@@ -25,8 +27,8 @@ export default async function SettlePage({ searchParams }: { searchParams: Searc
           }}
         >
           HOURLY SETTLE
-        </a>
-        <a
+        </Link>
+        <Link
           href="/settle?kind=mega"
           className="mono"
           style={{
@@ -41,7 +43,7 @@ export default async function SettlePage({ searchParams }: { searchParams: Searc
           }}
         >
           MEGA SETTLE
-        </a>
+        </Link>
       </div>
       <SettleScreen kind={k} />
     </div>

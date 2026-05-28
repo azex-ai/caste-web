@@ -103,7 +103,7 @@ export default function MyCardsPage() {
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.2em" }}>BATCH ACTION</div>
-          <button
+          <button type="button"
             disabled={!address || batchSize === 0 || batchPending}
             onClick={handleBatchFlip}
             title={batchTruncated ? `Capped at ${MAX_FLIP_BATCH}/batch — click again to flip the rest` : undefined}

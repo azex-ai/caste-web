@@ -190,7 +190,7 @@ export function SettleScreen({ kind = "hourly" }: { kind?: "hourly" | "mega" }) 
               ▸ HOURLY AUTO-SETTLES ON NEXT BUY · NO USER ACTION NEEDED
             </div>
           ) : (
-            <button
+            <button type="button"
               disabled={!isConnected || !canSettleMega || settleMega.isPending}
               onClick={() => settleMega.mutate()}
               title={!isConnected ? "Connect wallet to settle" : ""}

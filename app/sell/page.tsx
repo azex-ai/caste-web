@@ -359,7 +359,7 @@ function SellComposer({
               : Math.floor((casteBalance * p.pct) / 100);
             const active = amount === target && target > 0;
             return (
-              <button
+              <button type="button"
                 key={p.label}
                 onClick={() => onAmountChange(target, targetWei)}
                 disabled={casteBalWei === 0n}
@@ -430,7 +430,7 @@ function SellComposer({
       )}
 
       {readOnly ? (
-        <button
+        <button type="button"
           disabled
           title="Phase B unlocks after 10,000 cards minted"
           style={{
@@ -497,7 +497,7 @@ function SellCtaButton({
   const disabled = !address || sell.isPending || amountWei <= 0n || amountWei > casteBalWei;
   return (
     <>
-      <button
+      <button type="button"
         disabled={disabled}
         onClick={() => sell.mutate({ amount: amountWei })}
         style={{

@@ -5,9 +5,9 @@ export type TickerItem = { tag: string; text: string; color?: string };
 export function Ticker({ items }: { items: TickerItem[] }) {
   const content = (
     <div style={{ display: "flex", gap: 36, alignItems: "center", paddingRight: 36 }}>
-      {items.map((it, i) => (
+      {items.map((it) => (
         <div
-          key={i}
+          key={`${it.tag}-${it.text}`}
           style={{
             display: "flex",
             alignItems: "center",
@@ -122,9 +122,9 @@ export function SectionLabel({ children, subtitle, hint, num }: { children: Reac
       {hint && (
         <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.1em" }}>{hint}</span>
       )}
-      {num && (
+      {num ? (
         <span className="mono" style={{ fontSize: 11, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{num}</span>
-      )}
+      ) : null}
     </div>
   );
 }

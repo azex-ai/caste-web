@@ -30,9 +30,12 @@ export const addresses = {
 // Surface missing config loudly in the browser console — silent zero-fallbacks
 // caused us to hit `allowance` returned "0x" reverts during pre-launch.
 if (typeof window !== "undefined") {
-  const missing = Object.entries(addresses)
-    .filter(([, v]) => v === ZERO)
-    .map(([k]) => k);
+  // Single pass: collect missing keys via reduce — avoids the .filter().map()
+  // double-iteration on the addresses entries.
+  const missing = Object.entries(addresses).reduce<string[]>((acc, [k, v]) => {
+    if (v === ZERO) acc.push(k);
+    return acc;
+  }, []);
   if (missing.length > 0) {
     // eslint-disable-next-line no-console
     console.error(

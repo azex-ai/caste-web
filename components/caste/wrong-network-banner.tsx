@@ -55,7 +55,7 @@ export function WrongNetworkBanner() {
           {t("body", { current: currentChainId, target: activeChainId })}
         </span>
       </div>
-      <button
+      <button type="button"
         disabled={isPending}
         onClick={() => switchChain({ chainId: activeChainId })}
         style={{

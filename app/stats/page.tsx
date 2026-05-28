@@ -322,7 +322,7 @@ function ConstBlock({ title, rows }: { title: string; rows: Array<[string, strin
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map(([k, v, note], i) => (
           <div
-            key={i}
+            key={k}
             style={{
               display: "grid",
               gridTemplateColumns: "1fr auto",

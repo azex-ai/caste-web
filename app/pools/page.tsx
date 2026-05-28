@@ -155,7 +155,7 @@ export default function PoolsV1Page() {
                 +60s × log10(units) per buy<br />
                 cap = NOW + 24h
               </div>
-              <button
+              <button type="button"
                 disabled
                 style={{
                   padding: "14px 26px",

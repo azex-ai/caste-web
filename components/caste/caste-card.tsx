@@ -226,7 +226,11 @@ export function CasteCard({ card, w = 260, h = 380 }: { card: CardData; w?: numb
   if (!tier || !variantObj) return null;
   const sig = SIGNATURES[card.sig] ?? "—";
   const traitPool = TRAITS[tier.key] ?? [];
-  const traits = card.traits.map((i) => traitPool[i]).filter(Boolean) as string[];
+  // flatMap merges the map + filter into one pass: empty slot → skip, hit → keep.
+  const traits = card.traits.flatMap((i) => {
+    const t = traitPool[i];
+    return t ? [t] : [];
+  });
   const special = [69, 420, 1337, 6969, 21000].includes(card.id);
   const isBlackHumorSuit =
     (tier.key === "vc" && sig === "SBF") ||
@@ -275,7 +279,7 @@ export function CasteCard({ card, w = 260, h = 380 }: { card: CardData; w?: numb
 
         <div style={{ position: "absolute", left: 16, right: 16, bottom: 70, display: "flex", flexDirection: "column", gap: 4 }}>
           {traits.map((t, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span className="mono" style={{ fontSize: 8, color: "oklch(1 0 0 / 0.45)" }}>0{i + 1}</span>
               <div style={{ flex: 1, height: 1, background: "oklch(1 0 0 / 0.15)" }} />
               <span style={{ fontSize: 11, color: "var(--bone)", fontWeight: 700 }}>{t}</span>

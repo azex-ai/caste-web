@@ -14,14 +14,16 @@ function setLocaleCookie(locale: Locale) {
 export function LocaleSwitcher() {
   const current = useLocale() as Locale;
   const t = useTranslations("language");
-  const router = useRouter();
+  // Destructure the one method we use so React Compiler can memoize cleanly
+  // (the full router object isn't a stable reference).
+  const { refresh } = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function pick(next: Locale) {
     if (next === current || isPending) return;
     setLocaleCookie(next);
     startTransition(() => {
-      router.refresh();
+      refresh();
     });
   }
 

@@ -67,9 +67,9 @@ export default function AccountV1Page() {
   const hourlyWinnings = pos ? bigToNum(pos.hourlyWinnings, ONE_E6) : 0;
   const megaWinnings = pos ? bigToNum(pos.megaWinnings, ONE_E6) : 0;
 
-  // Top 4 flipped by payout
-  const topFlipped = [...flippedCards]
-    .sort((a, b) => (BigInt(a.payout ?? "0") < BigInt(b.payout ?? "0") ? 1 : -1))
+  // Top 4 flipped by payout. toSorted returns a new array — no need for spread.
+  const topFlipped = flippedCards
+    .toSorted((a, b) => (BigInt(a.payout ?? "0") < BigInt(b.payout ?? "0") ? 1 : -1))
     .slice(0, 4);
 
   const tickerItems = [

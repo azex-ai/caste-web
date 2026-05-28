@@ -53,14 +53,17 @@ export default function SwapV1Page() {
   const address = mounted ? rawAddress : undefined;
 
   // Real "highest flipped tier" — pulled from indexer-tracked CardFlipped rows.
+  // Single-pass max instead of sort()[0]: O(n) vs O(n log n), and skips the
+  // intermediate filter array.
   const { data: flippedCards = [] } = useUserCards(address, { flipped: true });
-  const highest = flippedCards
-    .filter((c) => c.tier !== null && c.variant !== null)
-    .sort((a, b) => {
-      const t = (b.tier ?? 0) - (a.tier ?? 0);
-      if (t !== 0) return t;
-      return (b.variant ?? 0) - (a.variant ?? 0);
-    })[0];
+  const highest = flippedCards.reduce<(typeof flippedCards)[number] | undefined>((best, c) => {
+    if (c.tier == null || c.variant == null) return best;
+    if (!best) return c;
+    const t = (c.tier ?? 0) - (best.tier ?? 0);
+    if (t > 0) return c;
+    if (t === 0 && (c.variant ?? 0) > (best.variant ?? 0)) return c;
+    return best;
+  }, undefined);
   const buy = useBuyCaste();
   const [units, setUnits] = useState(12);
   const usdcIn = units * UNIT_USDC;
@@ -204,7 +207,7 @@ export default function SwapV1Page() {
             ))}
           </div>
 
-          <button
+          <button type="button"
             disabled={!address || buy.isPending}
             onClick={() => buy.mutate({ units })}
             style={{
@@ -388,14 +391,14 @@ function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number
         <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)" }}>range 1–100</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 56px", gap: 14, alignItems: "stretch" }}>
-        <button style={stepBtn} onClick={() => setUnits(units - 1)} aria-label="decrement">−</button>
+        <button type="button" style={stepBtn} onClick={() => setUnits(units - 1)} aria-label="decrement">−</button>
         <div style={{ textAlign: "center", padding: "6px 0", background: "var(--ink-000)", border: "1px solid var(--ink-400)", borderRadius: 4 }}>
           <div className="led" style={{ fontSize: 56, color: "var(--acid)", lineHeight: 1, textShadow: "0 0 16px oklch(0.90 0.20 115 / 0.45)" }}>
             {units}
           </div>
           <div className="mono" style={{ fontSize: 10, letterSpacing: "0.35em", color: "var(--ink-600)", marginTop: 4 }}>UNITS</div>
         </div>
-        <button style={stepBtn} onClick={() => setUnits(units + 1)} aria-label="increment">+</button>
+        <button type="button" style={stepBtn} onClick={() => setUnits(units + 1)} aria-label="increment">+</button>
       </div>
 
       <div style={{ marginTop: 18, position: "relative" }}>
@@ -412,7 +415,7 @@ function UnitStepper({ units, onChange }: { units: number; onChange?: (u: number
 
       <div style={{ display: "flex", gap: 6, marginTop: 16 }}>
         {presets.map((p) => (
-          <button
+          <button type="button"
             key={p}
             onClick={() => setUnits(p)}
             style={{

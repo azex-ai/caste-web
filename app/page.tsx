@@ -244,8 +244,8 @@ function FlowBlock({ title, subtitle, lanes, hot }: { title: string; subtitle: s
       <div className="mono" style={{ fontSize: 10, color: hot ? "var(--blood-hi)" : "var(--ink-600)", letterSpacing: "0.25em", marginBottom: 4 }}>{title}</div>
       <div className="mono" style={{ fontSize: 11, color: "var(--ink-700)", marginBottom: 14 }}>{subtitle}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {lanes.map((b, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "70px 90px 130px 1fr", gap: 12, alignItems: "center", padding: "8px 10px", background: "var(--ink-100)", borderLeft: `4px solid ${b.color}`, borderRadius: 3 }}>
+        {lanes.map((b) => (
+          <div key={b.l} style={{ display: "grid", gridTemplateColumns: "70px 90px 130px 1fr", gap: 12, alignItems: "center", padding: "8px 10px", background: "var(--ink-100)", borderLeft: `4px solid ${b.color}`, borderRadius: 3 }}>
             <span className="led" style={{ fontSize: 18, color: b.color }}>{b.pct}%</span>
             <span className="led" style={{ fontSize: 14, color: "var(--bone)" }}>{b.v}</span>
             <span className="display" style={{ fontSize: 11, color: "var(--bone)", letterSpacing: "0.1em" }}>{b.l}</span>

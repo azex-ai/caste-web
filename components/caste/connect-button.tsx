@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount, useBalance, useConnect, useDisconnect } from "wagmi";
 
 import { addresses } from "@/lib/caste/contracts";
+import { useIsMounted } from "@/lib/use-is-mounted";
 import { activeChainId } from "@/lib/wagmi";
 
 // USDC is 6 decimals. Whole dollars with grouping, no decimals — keeps the
@@ -46,10 +47,7 @@ export function ConnectButton() {
   // the user has a remembered session. Rendering two different button trees
   // across that flip causes a hydration mismatch. Gate the wallet-dependent
   // UI behind a mount flag so the first client paint matches SSR output.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsMounted();
 
   // Close the popover on outside click / Escape.
   useEffect(() => {
@@ -92,7 +90,7 @@ export function ConnectButton() {
   if (!mounted || !isConnected) {
     return (
       <div ref={rootRef} style={{ position: "relative" }}>
-        <button
+        <button type="button"
           onClick={() => setOpen((v) => !v)}
           disabled={!mounted}
           style={{
@@ -152,7 +150,7 @@ export function ConnectButton() {
               </span>
             ) : (
               visibleConnectors.map((c) => (
-                <button
+                <button type="button"
                   key={c.uid}
                   onClick={() => {
                     connect({ connector: c });
@@ -211,7 +209,7 @@ export function ConnectButton() {
 
   return (
     <div ref={rootRef} style={{ position: "relative" }}>
-      <button
+      <button type="button"
         onClick={() => setOpen((v) => !v)}
         style={{
           display: "inline-flex",
@@ -287,7 +285,7 @@ export function ConnectButton() {
           }}
         >
           {address ? (
-            <button
+            <button type="button"
               onClick={() => {
                 navigator.clipboard?.writeText(address).catch(() => {});
                 setOpen(false);
@@ -297,7 +295,7 @@ export function ConnectButton() {
               Copy address
             </button>
           ) : null}
-          <button
+          <button type="button"
             onClick={() => {
               disconnect();
               setOpen(false);

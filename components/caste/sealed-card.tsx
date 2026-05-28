@@ -179,7 +179,7 @@ export function SealedCard({
             Bought block #{commitBlock?.toLocaleString() ?? "—"} · {buyUnits ?? 0} unit{buyUnits !== 1 ? "s" : ""} buy · {bought ?? "—"}
           </div>
           {showFlipBtn && (
-            <button
+            <button type="button"
               onClick={onFlip}
               disabled={!canFlip}
               style={{

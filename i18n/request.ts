@@ -22,10 +22,21 @@ export async function resolveLocale(): Promise<Locale> {
   return DEFAULT_LOCALE;
 }
 
+// Static imports so the bundler can statically resolve + split each locale's
+// JSON chunk. The previous `import(\`../messages/${locale}.json\`)` template
+// literal forced webpack into a wildcard chunk for every file in messages/.
+import enMessages from "../messages/en.json";
+import koMessages from "../messages/ko.json";
+
+const MESSAGES: Record<Locale, typeof enMessages> = {
+  en: enMessages,
+  ko: koMessages,
+};
+
 export default getRequestConfig(async () => {
   const locale = await resolveLocale();
   return {
     locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
+    messages: MESSAGES[locale],
   };
 });

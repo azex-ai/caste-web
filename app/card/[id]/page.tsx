@@ -231,7 +231,7 @@ function FlipActionBar({ tokenId }: { tokenId: string }) {
   return (
     <section style={{ padding: "0 40px 28px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
-        <button
+        <button type="button"
           disabled={flip.isPending}
           onClick={() => flip.mutate({ tokenId })}
           style={{
@@ -271,7 +271,7 @@ function MetadataPanel({ rows }: { rows: Array<[string, string, string]> }) {
         ON-CHAIN STATE · CasteCard
       </div>
       {rows.map(([k, v, c], i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 10, padding: "8px 0", borderBottom: i < rows.length - 1 ? "1px dotted var(--ink-400)" : "none" }}>
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: 10, padding: "8px 0", borderBottom: i < rows.length - 1 ? "1px dotted var(--ink-400)" : "none" }}>
           <span className="mono" style={{ fontSize: 10, color: "var(--ink-600)", letterSpacing: "0.15em" }}>{k}</span>
           <span className="mono" style={{ fontSize: 12, color: c, textAlign: "right" }}>{v}</span>
         </div>

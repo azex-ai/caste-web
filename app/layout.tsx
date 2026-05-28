@@ -44,8 +44,9 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  // getLocale + getMessages are independent — Promise.all races them so the
+  // first paint isn't waterfalled by the serial awaits.
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   return (
     <html lang={locale} suppressHydrationWarning>
       <body>
